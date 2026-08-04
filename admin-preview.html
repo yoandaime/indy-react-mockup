@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Admin Pages Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --background: #ffffff;
+    --foreground: #0a0a0a;
+    --card: #ffffff;
+    --card-foreground: #0a0a0a;
+    --primary: #D80223;
+    --primary-foreground: #fafafa;
+    --secondary: #f5f5f5;
+    --secondary-foreground: #171717;
+    --muted: #f5f5f5;
+    --muted-foreground: #737373;
+    --accent: #f5f5f5;
+    --destructive: #dc2626;
+    --border: #e5e5e5;
+    --input: #e5e5e5;
+    --ring: #a1a1a1;
+    --radius-lg: 10px;
+    --radius-md: 8px;
+    --radius-sm: 6px;
+    --radius-4xl: 22px;
+    --card-spacing: 16px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 0;
+    background: var(--muted);
+    font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--foreground);
+    font-size: 14px;
+  }
+  .divider-label {
+    text-align: center;
+    padding: 24px 0;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+    background: #e4e4e7;
+    border-top: 2px dashed #a1a1aa;
+    border-bottom: 2px dashed #a1a1aa;
+  }
+  .page {
+    background: var(--background);
+    max-width: 1280px;
+    margin: 0 auto;
+    min-height: 400px;
+  }
+  .mx-auto { margin-left: auto; margin-right: auto; }
+  .max-w-7xl { max-width: 1280px; }
+  .max-w-6xl { max-width: 1152px; }
+  .m-10 { margin: 40px; }
+  .space-y-6 > * + * { margin-top: 24px; }
+  .space-y-1 > * + * { margin-top: 4px; }
+
+  h1.title, h2.title { font-size: 24px; line-height: 32px; font-weight: 600; margin: 0; }
+  p.subtitle { font-size: 14px; color: var(--muted-foreground); margin: 0; }
+
+  .back-link { font-size: 14px; color: var(--muted-foreground); text-decoration: none; display: inline-block; }
+  .back-link:hover { text-decoration: underline; }
+
+  /* Topbar */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    height: 56px;
+    padding: 0 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  }
+  .topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    letter-spacing: -0.3px;
+    color: var(--foreground);
+    text-decoration: none;
+  }
+  .topbar-brand .logo-mark {
+    font-weight: 700;
+  }
+  .topbar-sep { color: var(--muted-foreground); }
+  .topbar-title { color: var(--muted-foreground); font-weight: 400; }
+  .topbar-user { display: flex; align-items: center; gap: 10px; }
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 9999px;
+    background: var(--muted);
+    color: var(--muted-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+  .topbar-user-text { line-height: 1.2; text-align: left; }
+  .topbar-user-name { font-size: 14px; font-weight: 500; color: var(--foreground); }
+  .topbar-user-role { font-size: 12px; color: var(--muted-foreground); }
+
+  /* shadcn Input */
+  input.search-input {
+    display: block;
+    width: 100%;
+    max-width: 448px;
+    height: 32px;
+    padding: 4px 10px;
+    border: 1px solid var(--input);
+    border-radius: var(--radius-lg);
+    font-size: 14px;
+    background: transparent;
+    color: var(--foreground);
+    outline: none;
+    font-family: inherit;
+  }
+  input.search-input::placeholder { color: var(--muted-foreground); }
+
+  /* shadcn Card */
+  .card {
+    border-radius: 12px;
+    background: var(--card);
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.06);
+    padding: var(--card-spacing) 0;
+  }
+  .card-header { padding: 0 var(--card-spacing); margin-bottom: 4px; }
+  .card-title { font-size: 16px; font-weight: 500; line-height: 22px; margin: 0; }
+  .card-content { padding: 0 var(--card-spacing); }
+
+  .table-wrap {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  thead tr { border-bottom: 1px solid var(--border); }
+  th {
+    height: 40px;
+    text-align: left;
+    padding: 0 8px;
+    font-weight: 500;
+    color: var(--foreground);
+    white-space: nowrap;
+    background: rgba(115, 115, 115, 0.08);
+  }
+  tbody tr { border-bottom: 1px solid var(--border); }
+  tbody tr:last-child { border-bottom: none; }
+  td {
+    padding: 8px;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; }
+
+  /* shadcn Badge */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 20px;
+    border-radius: var(--radius-4xl);
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--secondary);
+    color: var(--secondary-foreground);
+    white-space: nowrap;
+    gap: 4px;
+  }
+  .badge.solid { background: var(--primary); color: var(--primary-foreground); }
+  .badge.outline { background: transparent; border: 1px solid var(--border); color: var(--foreground); }
+  .badge-group { display: flex; flex-wrap: wrap; gap: 4px; min-width: 260px; }
+
+  /* shadcn Button */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border-radius: var(--radius-md);
+    font-size: 12.8px;
+    font-weight: 500;
+    padding: 0 10px;
+    height: 28px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    font-family: inherit;
+  }
+  .btn-outline {
+    background: var(--background);
+    border: 1px solid var(--input);
+    color: var(--foreground);
+  }
+  .btn-solid {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+  .btn-row { display: flex; gap: 4px; }
+
+  .field-input {
+    height: 32px;
+    width: 96px;
+    border: 1px solid var(--input);
+    border-radius: var(--radius-lg);
+    padding: 4px 10px;
+    font-size: 14px;
+    background: transparent;
+    color: var(--foreground);
+    font-family: inherit;
+  }
+  .field-input.disabled { background: rgba(229,229,229,0.5); color: var(--foreground); opacity: 0.5; }
+  .field-input.w-28 { width: 112px; }
+  .field-input.w-40 { width: 160px; }
+
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 32px;
+    height: 18.4px;
+    border-radius: 9999px;
+    background: var(--input);
+    vertical-align: middle;
+  }
+  .switch.on { background: var(--primary); }
+  .switch .knob {
+    position: absolute;
+    top: 1.2px;
+    left: 1px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--background);
+  }
+  .switch.on .knob { left: 15px; }
+
+  .alert-destructive {
+    border: 1px solid rgba(220,38,38,0.3);
+    background: rgba(220,38,38,0.1);
+    color: var(--destructive);
+    padding: 16px;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+
+  dl.detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 24px;
+    margin: 0;
+  }
+  .detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+  }
+  .detail-item dt {
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+  .detail-item dd {
+    font-size: 14px;
+    margin: 0;
+  }
+
+  /* Pagination */
+  .pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 2px;
+  }
+  .pagination-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+    padding: 0 10px;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    color: var(--foreground);
+    text-decoration: none;
+    background: transparent;
+  }
+  .pagination-link.active {
+    border: 1px solid var(--input);
+    background: var(--background);
+  }
+  .pagination-link:hover:not(.active) { background: rgba(115,115,115,0.08); }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="topbar-brand" href="#">
+    <span class="logo-mark">INDY</span>
+    <span class="topbar-sep">|</span>
+    <span class="topbar-title">Enrich Data Registration</span>
+  </a>
+  <div class="topbar-user">
+    <div class="avatar">AN</div>
+    <div class="topbar-user-text">
+      <div class="topbar-user-name">Antonio Nusa</div>
+      <div class="topbar-user-role">Admin</div>
+    </div>
+  </div>
+</header>
+
+<div class="divider-label">--- Admin Page ---</div>
+
+<div class="page">
+  <div class="m-10 space-y-6">
+
+    <div class="space-y-1">
+      <h2 class="title">Registered Data Sources</h2>
+      <p class="subtitle">All data source connections registered on the NDQ Enrich platform.</p>
+    </div>
+
+    <input class="search-input" placeholder="Search by ID, group, category, layer, table, granularity..." />
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>ID</th>
+            <th>Group Apps</th>
+            <th>Category</th>
+            <th>Layer</th>
+            <th>Table Name</th>
+            <th>Control Table</th>
+            <th>Reference</th>
+            <th>Granularity</th>
+            <th>Features</th>
+            <th>OLA Readiness</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>1</td>
+            <td>NDM</td>
+            <td>RAN</td>
+            <td>Speed Layer</td>
+            <td class="mono">default.etl_cell_5g_ran_ericsson_kpi_daily</td>
+            <td class="mono">reference.ran_control_table</td>
+            <td class="mono">default.icam_ran_data_full_5g</td>
+            <td>daily</td>
+            <td><div class="badge-group">
+              <span class="badge">count_row</span>
+              <span class="badge">validity_kpi</span>
+              <span class="badge">timeliness</span>
+              <span class="badge">uniqueness</span>
+            </div></td>
+            <td>1 day 08:00:00</td>
+            <td><button class="btn btn-outline">Detail</button></td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>2</td>
+            <td>NDM</td>
+            <td>RAN</td>
+            <td>Speed Layer</td>
+            <td class="mono">default.etl_cell_5g_ran_ericsson_kpi_hourly</td>
+            <td class="mono">reference.ran_control_table</td>
+            <td class="mono">default.icam_ran_data_full_5g</td>
+            <td>hourly</td>
+            <td><div class="badge-group">
+              <span class="badge">count_row</span>
+              <span class="badge">validity_kpi</span>
+              <span class="badge">timeliness</span>
+              <span class="badge">uniqueness</span>
+            </div></td>
+            <td>04:00:00</td>
+            <td><button class="btn btn-outline">Detail</button></td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>3</td>
+            <td>NDM</td>
+            <td>RAN</td>
+            <td>Speed Layer</td>
+            <td class="mono">default.etl_cell_5g_ran_zte_kpi_hourly</td>
+            <td class="mono">reference.ran_control_table</td>
+            <td class="mono">default.icam_ran_data_full_5g</td>
+            <td>hourly</td>
+            <td><div class="badge-group">
+              <span class="badge">count_row</span>
+              <span class="badge">validity_kpi</span>
+              <span class="badge">timeliness</span>
+              <span class="badge">uniqueness</span>
+            </div></td>
+            <td>04:00:00</td>
+            <td><button class="btn btn-outline">Detail</button></td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td>4</td>
+            <td>NDM</td>
+            <td>RAN</td>
+            <td>Speed Layer</td>
+            <td class="mono">default.etl_cell_5g_ran_zte_kpi_daily</td>
+            <td class="mono">reference.ran_control_table</td>
+            <td class="mono">default.icam_ran_data_full_5g</td>
+            <td>daily</td>
+            <td><div class="badge-group">
+              <span class="badge">count_row</span>
+              <span class="badge">validity_kpi</span>
+              <span class="badge">timeliness</span>
+              <span class="badge">uniqueness</span>
+            </div></td>
+            <td>1 day 08:00:00</td>
+            <td><button class="btn btn-outline">Detail</button></td>
+          </tr>
+          <tr>
+            <td>5</td>
+            <td>5</td>
+            <td>NDM</td>
+            <td>RAN</td>
+            <td>Speed Layer</td>
+            <td class="mono">default.etl_cell_5g_ran_huawei_kpi_daily</td>
+            <td class="mono">reference.ran_control_table</td>
+            <td class="mono">default.icam_ran_data_full_5g</td>
+            <td>daily</td>
+            <td><div class="badge-group">
+              <span class="badge">count_row</span>
+              <span class="badge">validity_kpi</span>
+              <span class="badge">timeliness</span>
+              <span class="badge">uniqueness</span>
+            </div></td>
+            <td>1 day 08:00:00</td>
+            <td><button class="btn btn-outline">Detail</button></td>
+          </tr>
+          <tr>
+            <td>6</td>
+            <td>6</td>
+            <td>NDM</td>
+            <td>RAN</td>
+            <td>Speed Layer</td>
+            <td class="mono">default.etl_cell_5g_ran_huawei_kpi_hourly</td>
+            <td class="mono">reference.ran_control_table</td>
+            <td class="mono">default.icam_ran_data_full_5g</td>
+            <td>hourly</td>
+            <td><div class="badge-group">
+              <span class="badge">count_row</span>
+              <span class="badge">validity_kpi</span>
+              <span class="badge">timeliness</span>
+              <span class="badge">uniqueness</span>
+            </div></td>
+            <td>04:00:00</td>
+            <td><button class="btn btn-outline">Detail</button></td>
+          </tr>
+          <tr>
+            <td>7</td>
+            <td>23</td>
+            <td>NDM</td>
+            <td>CORE CS</td>
+            <td>Speed Layer</td>
+            <td class="mono">smy.etl_core_cs_nokia_gcs_dd</td>
+            <td class="mono">reference.core_control_table</td>
+            <td class="mono">smy.etl_core_cs_nokia_gcs_dd</td>
+            <td>daily</td>
+            <td><div class="badge-group">
+              <span class="badge">count_row</span>
+              <span class="badge">timeliness</span>
+              <span class="badge">validity_core</span>
+              <span class="badge">uniqueness</span>
+            </div></td>
+            <td>1 day 08:00:00</td>
+            <td><button class="btn btn-outline">Detail</button></td>
+          </tr>
+          <tr>
+            <td>8</td>
+            <td>24</td>
+            <td>NDM</td>
+            <td>CORE VAS</td>
+            <td>Speed Layer</td>
+            <td class="mono">base.oss_core_vas_sms_msc_hh</td>
+            <td class="mono">reference.core_control_table</td>
+            <td class="mono">base.oss_core_vas_sms_msc_hh</td>
+            <td>hourly</td>
+            <td><div class="badge-group">
+              <span class="badge">count_row</span>
+              <span class="badge">timeliness</span>
+              <span class="badge">validity_core</span>
+            </div></td>
+            <td>06:00:00</td>
+            <td><button class="btn btn-outline">Detail</button></td>
+          </tr>
+          <tr>
+            <td>9</td>
+            <td>25</td>
+            <td>NDM</td>
+            <td>CORE CS</td>
+            <td>Speed Layer</td>
+            <td class="mono">smy.etl_core_cs_huawei_cscf_dd</td>
+            <td class="mono">reference.core_control_table</td>
+            <td class="mono">smy.etl_core_cs_huawei_cscf_d</td>
+            <td>daily</td>
+            <td><div class="badge-group">
+              <span class="badge">count_row</span>
+              <span class="badge">timeliness</span>
+              <span class="badge">validity_core</span>
+              <span class="badge">uniqueness</span>
+            </div></td>
+            <td>1 day 08:00:00</td>
+            <td><button class="btn btn-outline">Detail</button></td>
+          </tr>
+          <tr>
+            <td>10</td>
+            <td>261</td>
+            <td>NDM</td>
+            <td>RAN</td>
+            <td>Speed Layer</td>
+            <td class="mono">default.etl_cell_5g_ran_ericsson_kpi_daily</td>
+            <td class="mono">reference.ran_control_table</td>
+            <td class="mono">default.icam_ran_data_full_5g</td>
+            <td>daily</td>
+            <td><div class="badge-group">
+              <span class="badge">count_row</span>
+              <span class="badge">validity_kpi</span>
+              <span class="badge">timeliness</span>
+              <span class="badge">uniqueness</span>
+            </div></td>
+            <td>1 day 08:00:00</td>
+            <td><button class="btn btn-outline">Detail</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <nav class="pagination">
+      <a class="pagination-link" href="#">&lsaquo; Previous</a>
+      <a class="pagination-link active" href="#">1</a>
+      <a class="pagination-link" href="#">2</a>
+      <a class="pagination-link" href="#">Next &rsaquo;</a>
+    </nav>
+
+  </div>
+</div>
+
+<div class="divider-label">--- Admin Detail Page ---</div>
+
+<div class="page">
+  <div class="m-10 space-y-6">
+
+    <div class="space-y-1">
+      <a class="back-link" href="#">&larr; Back to Admin</a>
+      <h1 class="title">Data Source Detail</h1>
+      <p class="subtitle">Connection ID: 261 — default.etl_cell_5g_ran_ericsson_kpi_daily</p>
+    </div>
+
+    <!-- Connections -->
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">Connections</h2></div>
+      <div class="card-content">
+        <dl class="detail-grid">
+          <div class="detail-item"><dt>Connection ID</dt><dd>261</dd></div>
+          <div class="detail-item"><dt>Group Apps</dt><dd>NDM</dd></div>
+          <div class="detail-item"><dt>Category</dt><dd>RAN</dd></div>
+          <div class="detail-item"><dt>Layer Name</dt><dd>Speed Layer</dd></div>
+          <div class="detail-item"><dt>Table Name</dt><dd class="mono">default.etl_cell_5g_ran_ericsson_kpi_daily</dd></div>
+          <div class="detail-item"><dt>Control Table</dt><dd class="mono">reference.ran_control_table</dd></div>
+          <div class="detail-item"><dt>Reference</dt><dd class="mono">default.icam_ran_data_full_5g</dd></div>
+          <div class="detail-item"><dt>Granularity</dt><dd>daily</dd></div>
+          <div class="detail-item">
+            <dt>Features</dt>
+            <dd><div class="badge-group">
+              <span class="badge">count_row</span>
+              <span class="badge">validity_kpi</span>
+              <span class="badge">timeliness</span>
+              <span class="badge">uniqueness</span>
+            </div></dd>
+          </div>
+          <div class="detail-item"><dt>OLA Readiness</dt><dd>1 day 08:00:00</dd></div>
+        </dl>
+      </div>
+    </div>
+
+    <!-- Connection Column -->
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">Connection Column</h2></div>
+      <div class="card-content">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>Connection ID</th>
+                <th>Column Name</th>
+                <th>Type ID</th>
+                <th>Expression ID</th>
+                <th>Is Unique</th>
+                <th>Is Validity</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>261</td>
+                <td>yearmonth</td>
+                <td><input class="field-input disabled" value="" disabled /></td>
+                <td><input class="field-input disabled" value="" disabled /></td>
+                <td><input type="checkbox" disabled /></td>
+                <td><input type="checkbox" disabled /></td>
+                <td><button class="btn btn-outline">Edit</button></td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>261</td>
+                <td>date_end</td>
+                <td><input class="field-input" value="" /></td>
+                <td><input class="field-input" value="" /></td>
+                <td><input type="checkbox" /></td>
+                <td><input type="checkbox" /></td>
+                <td>
+                  <div class="btn-row">
+                    <button class="btn btn-solid">Save</button>
+                    <button class="btn btn-outline">Cancel</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dimension Rules -->
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">Dimension Rules</h2></div>
+      <div class="card-content">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Connection ID</th>
+                <th>Dimension</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>261</td><td>completeness</td><td>count_row</td></tr>
+              <tr><td>261</td><td>validity</td><td>validity_kpi</td></tr>
+              <tr><td>261</td><td>timeliness</td><td>timeliness</td></tr>
+              <tr><td>261</td><td>uniqueness</td><td>uniqueness</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Table -->
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">Active Table</h2></div>
+      <div class="card-content">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Connection ID</th>
+                <th>Enabled</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>261</td>
+                <td><span class="badge solid">Enabled</span></td>
+                <td><button class="btn btn-outline">Edit</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Schedule -->
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">Schedule</h2></div>
+      <div class="card-content">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Start Time</th>
+                <th>Connection ID</th>
+                <th>Cron Schedule</th>
+                <th>Enabled</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>08/07/2026</td>
+                <td>261</td>
+                <td class="mono">55 6,7,9,12,15</td>
+                <td><span class="badge outline">Disabled</span></td>
+                <td><button class="btn btn-outline">Edit</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
