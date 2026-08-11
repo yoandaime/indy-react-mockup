@@ -1,8 +1,15 @@
 import { STATUS_META } from "@/data/ticketingData"
 import { cn } from "@/lib/utils"
 
-export default function StatusBadge({ status, variant = "outline", className }) {
-  const meta = STATUS_META[status]
+const ARCHIVE_META = {
+  badgeClass: "bg-purple-700 text-purple-50",
+  dotClass: "bg-purple-50",
+  outlineClass: "bg-purple-100 border-purple-700 text-purple-700",
+  outlineDotClass: "bg-purple-700",
+}
+
+export default function StatusBadge({ status, variant = "outline", className, archive }) {
+  const meta = archive ? ARCHIVE_META : STATUS_META[status]
   const isOutline = variant === "outline"
 
   return (
@@ -15,7 +22,7 @@ export default function StatusBadge({ status, variant = "outline", className }) 
       )}
     >
       <span className={cn("size-1.5 shrink-0 rounded-full", isOutline ? meta.outlineDotClass : meta.dotClass)} />
-      {meta.label}
+      {archive ? "Archive" : meta.label}
     </span>
   )
 }

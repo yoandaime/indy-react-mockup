@@ -10,10 +10,19 @@ import {
   LayoutGrid,
   List as ListIcon,
   Kanban as KanbanIcon,
+  ListFilter,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Table,
   TableHeader,
@@ -32,18 +41,36 @@ import {
 } from "@/components/ui/pagination"
 import TicketCard from "@/components/ticketing/TicketCard"
 import StatusBadge from "@/components/ticketing/StatusBadge"
+import PriorityBadge from "@/components/ticketing/PriorityBadge"
 import NewTicketDialog from "@/components/ticketing/NewTicketDialog"
 import CloseArchiveDialog from "@/components/ticketing/CloseArchiveDialog"
-import { STATUS, ticketAuthorEmail } from "@/data/ticketingData"
+import {
+  STATUS,
+  CURRENT_USER,
+  ticketAuthorEmail,
+  ticketAuthorInitials,
+  ticketAuthorAvatarUrl,
+} from "@/data/ticketingData"
 import { cn } from "@/lib/utils"
 
 const PAGE_SIZE = 10
 
-const KANBAN_COLUMNS = [
-  { status: STATUS.backlog, bgClass: "bg-sky-50", countClass: "text-sky-700" },
-  { status: STATUS.active, bgClass: "bg-amber-50", countClass: "text-amber-700" },
-  { status: STATUS.done, bgClass: "bg-emerald-50", countClass: "text-emerald-700" },
+const TASK_FILTER_OPTIONS = [
+  { value: "all", label: "All Ticket" },
+  { value: "mine", label: "My Task" },
 ]
+
+const TASK_FILTER_LABELS = Object.fromEntries(
+  TASK_FILTER_OPTIONS.map((option) => [option.value, option.label])
+)
+
+const KANBAN_COLUMNS = [
+  { status: STATUS.open, bgClass: "bg-sky-50", countClass: "text-sky-700" },
+  { status: STATUS.inProgress, bgClass: "bg-amber-50", countClass: "text-amber-700" },
+  { status: STATUS.solved, bgClass: "bg-emerald-50", countClass: "text-emerald-700" },
+]
+
+const BOARD_STATUSES = [STATUS.open, STATUS.inProgress, STATUS.solved]
 
 function formatDateTime(iso) {
   const date = new Date(iso)
@@ -52,26 +79,42 @@ function formatDateTime(iso) {
   return `${datePart}, ${timePart}`
 }
 
+function isMyTask(ticket) {
+  return (
+    ticket.author === CURRENT_USER ||
+    ticket.issueOwner === CURRENT_USER ||
+    ticket.pic.includes(CURRENT_USER)
+  )
+}
+
 export default function TicketingPage() {
   const { selectedCategoryPath, tickets, setTickets } = useOutletContext()
   const [boardTab, setBoardTab] = useState("board")
   const [viewMode, setViewMode] = useState("grid")
   const [search, setSearch] = useState("")
+  const [taskFilter, setTaskFilter] = useState("all")
   const [page, setPage] = useState(1)
+
+  const handleBoardTabChange = (next) => {
+    setBoardTab(next)
+    if (next === "archive" && viewMode === "kanban") setViewMode("grid")
+  }
   const [newTicketOpen, setNewTicketOpen] = useState(false)
   const [closeArchiveOpen, setCloseArchiveOpen] = useState(false)
   const [pendingCloseId, setPendingCloseId] = useState(null)
 
-  const categoryPathOf = (t) => `${t.category.application}/${t.category.type}/${t.category.dimension}`
+  const categoryPathOf = (t) => `${t.category.application}/${t.category.scope}/${t.category.concern}`
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return tickets.filter((t) => {
       if (viewMode !== "kanban") {
-        const inBoard = t.status === STATUS.backlog || t.status === STATUS.active
-        const matchesTab = boardTab === "archive" ? t.status === STATUS.done : inBoard
+        const inBoard = BOARD_STATUSES.includes(t.status)
+        const matchesTab = boardTab === "archive" ? t.status === STATUS.closed : inBoard
         if (!matchesTab) return false
       }
+
+      if (taskFilter === "mine" && !isMyTask(t)) return false
 
       if (selectedCategoryPath) {
         const path = categoryPathOf(t)
@@ -83,14 +126,15 @@ export default function TicketingPage() {
         t.id.toLowerCase().includes(q) ||
         t.title.toLowerCase().includes(q) ||
         t.author.toLowerCase().includes(q) ||
+        t.tableName.toLowerCase().includes(q) ||
         t.tags.some((tag) => tag.toLowerCase().includes(q))
       )
     })
-  }, [tickets, boardTab, viewMode, selectedCategoryPath, search])
+  }, [tickets, boardTab, viewMode, taskFilter, selectedCategoryPath, search])
 
   useEffect(() => {
     setPage(1)
-  }, [search, boardTab, selectedCategoryPath, viewMode])
+  }, [search, boardTab, taskFilter, selectedCategoryPath, viewMode])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -103,12 +147,13 @@ export default function TicketingPage() {
     const sameDayCount = tickets.filter((t) => t.id.startsWith(datePrefix)).length
     const newTicket = {
       id: `${datePrefix}${String(sameDayCount + 1).padStart(3, "0")}`,
-      author: "Antonio Nusa",
+      author: CURRENT_USER,
       createdAt: now.toISOString(),
-      status: STATUS.backlog,
+      status: STATUS.open,
       sla: "<12h",
       upvotes: 0,
       views: 0,
+      pic: [],
       replies: [],
       resolution: null,
       ...draft,
@@ -121,11 +166,6 @@ export default function TicketingPage() {
     e.preventDefault()
     const id = e.dataTransfer.getData("text/plain")
     if (!id) return
-    if (status === STATUS.done) {
-      setPendingCloseId(id)
-      setCloseArchiveOpen(true)
-      return
-    }
     setTickets((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)))
   }
 
@@ -137,7 +177,7 @@ export default function TicketingPage() {
   const handleCloseArchiveSubmit = (resolution) => {
     if (!pendingCloseId) return
     setTickets((prev) =>
-      prev.map((t) => (t.id === pendingCloseId ? { ...t, status: STATUS.done, resolution } : t))
+      prev.map((t) => (t.id === pendingCloseId ? { ...t, status: STATUS.closed, resolution } : t))
     )
     notifySuccess("Ticket closed & archived", `Ticket ${pendingCloseId} has been closed and archived.`)
     setPendingCloseId(null)
@@ -145,11 +185,11 @@ export default function TicketingPage() {
 
   return (
     <>
-      <div className="w-full flex-1 space-y-6 bg-white p-8">
+      <div className="w-full flex-1 space-y-4.5 bg-white p-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex flex-wrap items-start gap-6">
-            <Tabs value={boardTab} onValueChange={setBoardTab}>
-              <TabsList>
+          <div className="flex flex-wrap items-center gap-6">
+            <Tabs value={boardTab} onValueChange={handleBoardTabChange}>
+              <TabsList variant="line">
                 <TabsTrigger value="board">
                   <Presentation />
                   Board
@@ -161,48 +201,64 @@ export default function TicketingPage() {
               </TabsList>
             </Tabs>
 
-            <Tabs value={viewMode} onValueChange={setViewMode}>
-              <TabsList>
-                <TabsTrigger value="grid">
-                  <LayoutGrid />
-                  Grid
-                </TabsTrigger>
-                <TabsTrigger value="list">
-                  <ListIcon />
-                  List
-                </TabsTrigger>
-                <TabsTrigger value="kanban">
-                  <KanbanIcon />
-                  Kanban
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
+            <div className="flex items-center gap-2.5">
+              <Select value={taskFilter} onValueChange={setTaskFilter}>
+                <SelectTrigger size="sm" className="w-fit rounded-full shadow-xs">
+                  <ListFilter className="size-4 text-muted-foreground" />
+                  <SelectValue>{(value) => TASK_FILTER_LABELS[value]}</SelectValue>
+                </SelectTrigger>
+                <SelectContent align="start">
+                  {TASK_FILTER_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-          <div className="flex shrink-0 items-center gap-3">
-            <div className="relative w-[320px] shrink-0">
-              <Input
-                placeholder="Search tickets..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-9 pr-9 shadow-xs"
-              />
-              <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <div className="relative w-[320px] shrink-0">
+                <Input
+                  placeholder="Search tickets..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="h-7 pr-8 font-normal shadow-xs"
+                />
+                <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              </div>
             </div>
-
-            <Button className="shrink-0" onClick={() => setNewTicketOpen(true)}>
-              <Plus className="size-4" />
-              New Ticket
-            </Button>
           </div>
+
+          <Button className="shrink-0" onClick={() => setNewTicketOpen(true)}>
+            <Plus className="size-4" />
+            New Ticket
+          </Button>
         </div>
 
+        <Tabs value={viewMode} onValueChange={setViewMode}>
+          <TabsList>
+            <TabsTrigger value="grid">
+              <LayoutGrid />
+              Grid
+            </TabsTrigger>
+            <TabsTrigger value="list">
+              <ListIcon />
+              List
+            </TabsTrigger>
+            {boardTab === "board" && (
+              <TabsTrigger value="kanban">
+                <KanbanIcon />
+                Kanban
+              </TabsTrigger>
+            )}
+          </TabsList>
+        </Tabs>
+
         {viewMode === "grid" && (
-          <GridView tickets={paginated} isEmpty={filtered.length === 0} />
+          <GridView tickets={paginated} isEmpty={filtered.length === 0} archive={boardTab === "archive"} />
         )}
 
         {viewMode === "list" && (
-          <ListView tickets={paginated} isEmpty={filtered.length === 0} />
+          <ListView tickets={paginated} isEmpty={filtered.length === 0} archive={boardTab === "archive"} />
         )}
 
         {viewMode === "kanban" && (
@@ -265,7 +321,7 @@ export default function TicketingPage() {
   )
 }
 
-function GridView({ tickets, isEmpty }) {
+function GridView({ tickets, isEmpty, archive }) {
   if (isEmpty) {
     return (
       <div className="rounded-xl border bg-white p-10 text-center text-sm text-muted-foreground">
@@ -276,13 +332,13 @@ function GridView({ tickets, isEmpty }) {
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
       {tickets.map((t) => (
-        <TicketCard key={t.id} ticket={t} />
+        <TicketCard key={t.id} ticket={t} archive={archive} />
       ))}
     </div>
   )
 }
 
-function ListView({ tickets, isEmpty }) {
+function ListView({ tickets, isEmpty, archive }) {
   const navigate = useNavigate()
   return (
     <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
@@ -295,6 +351,7 @@ function ListView({ tickets, isEmpty }) {
             <TableHead className="text-sm font-medium text-neutral-600">Title</TableHead>
             <TableHead className="text-sm font-medium text-neutral-600">Tags</TableHead>
             <TableHead className="text-sm font-medium text-neutral-600">Status</TableHead>
+            <TableHead className="text-sm font-medium text-neutral-600">Priority</TableHead>
             <TableHead className="text-sm font-medium text-neutral-600">SLA</TableHead>
             <TableHead className="text-center text-sm font-medium text-neutral-600">Upvotes</TableHead>
             <TableHead className="text-center text-sm font-medium text-neutral-600">Replies</TableHead>
@@ -311,9 +368,17 @@ function ListView({ tickets, isEmpty }) {
             >
               <TableCell className="text-sm text-foreground">{i + 1}.</TableCell>
               <TableCell>
-                <div className="flex flex-col">
-                  <span className="text-sm text-foreground">{t.author}</span>
-                  <span className="text-xs text-muted-foreground">{ticketAuthorEmail(t.author)}</span>
+                <div className="flex items-center gap-2.5">
+                  <Avatar size="sm">
+                    {ticketAuthorAvatarUrl(t.author) && (
+                      <AvatarImage src={ticketAuthorAvatarUrl(t.author)} alt={t.author} />
+                    )}
+                    <AvatarFallback className="font-semibold">{ticketAuthorInitials(t.author)}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col">
+                    <span className="text-sm text-foreground">{t.author}</span>
+                    <span className="text-xs text-muted-foreground">{ticketAuthorEmail(t.author)}</span>
+                  </div>
                 </div>
               </TableCell>
               <TableCell className="text-sm text-foreground">{t.id}</TableCell>
@@ -324,7 +389,10 @@ function ListView({ tickets, isEmpty }) {
                 {t.tags.map((tag) => `#${tag}`).join(" ")}
               </TableCell>
               <TableCell>
-                <StatusBadge status={t.status} />
+                <StatusBadge status={t.status} archive={archive} />
+              </TableCell>
+              <TableCell>
+                <PriorityBadge priority={t.priority} />
               </TableCell>
               <TableCell>
                 <span className="rounded-lg bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
@@ -339,7 +407,7 @@ function ListView({ tickets, isEmpty }) {
           ))}
           {isEmpty && (
             <TableRow>
-              <TableCell colSpan={11} className="text-center text-muted-foreground">
+              <TableCell colSpan={12} className="text-center text-muted-foreground">
                 No tickets match your filters.
               </TableCell>
             </TableRow>

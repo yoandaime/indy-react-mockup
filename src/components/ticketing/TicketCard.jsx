@@ -1,15 +1,17 @@
 import { useNavigate } from "react-router-dom"
 import { ThumbsUp, MessageSquare, Eye } from "lucide-react"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import StatusBadge from "@/components/ticketing/StatusBadge"
-import { ticketAuthorEmail, ticketAuthorInitials } from "@/data/ticketingData"
+import PicAvatarStack from "@/components/ticketing/PicAvatarStack"
+import PriorityBadge from "@/components/ticketing/PriorityBadge"
+import { ticketAuthorEmail, ticketAuthorInitials, ticketAuthorAvatarUrl } from "@/data/ticketingData"
 import { cn } from "@/lib/utils"
 
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
 }
 
-export default function TicketCard({ ticket, draggable, onDragStart, className, hideStatus }) {
+export default function TicketCard({ ticket, draggable, onDragStart, className, hideStatus, archive }) {
   const navigate = useNavigate()
 
   return (
@@ -28,28 +30,32 @@ export default function TicketCard({ ticket, draggable, onDragStart, className, 
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-3">
-          {!hideStatus && <StatusBadge status={ticket.status} />}
-          <span className="rounded-lg bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-            SLA {ticket.sla}
-          </span>
+        <div className="flex items-center gap-2.5">
+          <Avatar>
+            {ticketAuthorAvatarUrl(ticket.author) && (
+              <AvatarImage src={ticketAuthorAvatarUrl(ticket.author)} alt={ticket.author} />
+            )}
+            <AvatarFallback className="font-semibold">{ticketAuthorInitials(ticket.author)}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-foreground">{ticket.author}</p>
+            <p className="truncate text-xs text-neutral-600">{ticketAuthorEmail(ticket.author)}</p>
+          </div>
         </div>
-        <span className="shrink-0 text-xs text-neutral-600">{ticket.id}</span>
-      </div>
-
-      <div className="flex items-center gap-2.5">
-        <Avatar>
-          <AvatarFallback className="font-semibold">{ticketAuthorInitials(ticket.author)}</AvatarFallback>
-        </Avatar>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-foreground">{ticket.author}</p>
-          <p className="truncate text-xs text-neutral-600">{ticketAuthorEmail(ticket.author)}</p>
-        </div>
+        <span className="shrink-0 text-xs text-neutral-600">{formatDate(ticket.createdAt)}</span>
       </div>
 
       <p className="line-clamp-2 text-lg leading-[27px] font-medium text-foreground">{ticket.title}</p>
 
-      <div className="mt-auto flex w-full flex-col gap-2.5">
+      <div className="mt-auto flex w-full flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {!hideStatus && <StatusBadge status={ticket.status} archive={archive} />}
+          <span className="rounded-lg bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+            SLA {ticket.sla}
+          </span>
+          <PriorityBadge priority={ticket.priority} />
+        </div>
+
         <div className="flex flex-wrap gap-2 text-xs text-sky-600">
           {ticket.tags.map((tag) => (
             <span key={tag}>#{tag}</span>
@@ -71,7 +77,7 @@ export default function TicketCard({ ticket, draggable, onDragStart, className, 
               {ticket.views} {ticket.views === 1 ? "view" : "views"}
             </span>
           </div>
-          <span className="text-xs text-neutral-600">{formatDate(ticket.createdAt)}</span>
+          <PicAvatarStack pic={ticket.pic} />
         </div>
       </div>
     </div>

@@ -1,14 +1,17 @@
 // Mock data for the Ticketing (NDQ-Forum) page — no backend integration yet.
 
+export const CURRENT_USER = "Antonio Nusa"
+
 export const STATUS = {
-  backlog: "backlog",
-  active: "active",
-  done: "done",
+  open: "open",
+  inProgress: "inProgress",
+  solved: "solved",
+  closed: "closed",
 }
 
 export const STATUS_META = {
-  backlog: {
-    label: "Backlog",
+  open: {
+    label: "Open",
     archiveLabel: "Terkirim",
     // Solid style — used for the Kanban column header badge only.
     badgeClass: "bg-sky-700 text-sky-50",
@@ -17,23 +20,71 @@ export const STATUS_META = {
     outlineClass: "bg-sky-100 border-sky-700 text-sky-700",
     outlineDotClass: "bg-sky-700",
   },
-  active: {
-    label: "In progress",
+  inProgress: {
+    label: "In Progress",
     archiveLabel: "Active Issue",
     badgeClass: "bg-amber-700 text-yellow-50",
     dotClass: "bg-yellow-50",
     outlineClass: "bg-amber-100 border-amber-700 text-amber-700",
     outlineDotClass: "bg-amber-700",
   },
-  done: {
-    label: "Done",
+  solved: {
+    label: "Solved",
     archiveLabel: "Arsip Solusi",
     badgeClass: "bg-emerald-700 text-emerald-50",
     dotClass: "bg-emerald-50",
     outlineClass: "bg-green-100 border-green-700 text-green-700",
     outlineDotClass: "bg-green-700",
   },
+  closed: {
+    label: "Closed",
+    archiveLabel: "Arsip Solusi",
+    badgeClass: "bg-purple-700 text-purple-50",
+    dotClass: "bg-purple-50",
+    outlineClass: "bg-purple-100 border-purple-700 text-purple-700",
+    outlineDotClass: "bg-purple-700",
+  },
 }
+
+export const PRIORITY_META = {
+  Critical: {
+    label: "Critical",
+    labelClass: "text-red-700",
+  },
+  High: {
+    label: "High",
+    labelClass: "text-orange-700",
+  },
+  Medium: {
+    label: "Medium",
+    labelClass: "text-yellow-700",
+  },
+  Low: {
+    label: "Low",
+    labelClass: "text-amber-700",
+  },
+}
+
+export const DOMAIN_OPTIONS = ["NDM AL", "NDM SL"]
+
+export const TABLE_NAME_OPTIONS = [
+  "default.icdm_icbw_cr",
+  "twicloud.ipdk_ichm_combe",
+  "etl_core_sgsn_ericsson_kpi_hourly",
+  "default.etl_cell_5g_ran_ericsson_kpi_daily",
+  "reference.core_control_table",
+  "base.oss_core_vas_sms_msc_hh",
+  "smy.etl_core_cs_nokia_gcs_dd",
+]
+
+export const PIC_OPTIONS = [
+  "Bramantyo Adi",
+  "Siti Nurhaliza",
+  "Rahadian A.",
+  "Nabila Putri",
+  "Dewi Kartika",
+  "Ivan Nurcahyo",
+]
 
 export const DEFAULT_CATEGORY_TREE = [
   {
@@ -72,6 +123,11 @@ function emailOf(name) {
   return `${slug}@telkomsel.co.id`
 }
 
+function avatarUrlOf(name) {
+  if (!name) return null
+  return `https://api.dicebear.com/10.x/thumbs/svg?seed=${encodeURIComponent(name)}`
+}
+
 export const TICKETS = [
   {
     id: "NDQR20260730001",
@@ -80,10 +136,16 @@ export const TICKETS = [
     title: "issue_dummy",
     description:
       "Terdapat ketidaklengkapan data pada tabel default.icdm_icbw_cr yang menyebabkan validasi harian gagal.",
-    category: { application: "NDM", type: "Data Quality", dimension: "Completeness" },
+    category: { application: "NDM", scope: "Data Quality", concern: "Completeness" },
+    domain: "NDM AL",
+    tableName: "default.icdm_icbw_cr",
+    ticketFor: "self",
+    issueOwner: "Fengky Pratama",
+    pic: ["Bramantyo Adi", "Siti Nurhaliza", "Nabila Putri"],
+    priority: "High",
     tags: ["ndm_speed_layer"],
     ipAddress: "10.21.4.12",
-    status: STATUS.active,
+    status: STATUS.inProgress,
     sla: "<12h",
     upvotes: 1,
     views: 1,
@@ -97,10 +159,16 @@ export const TICKETS = [
     title: "[MADING AKTIF] Kendala Data Incompleteness",
     description:
       "Ditemukan gap row count pada twicloud.ipdk_ichm_combe di window pukul 08:00-15:00. Perlu investigasi engine ingest.",
-    category: { application: "NDM", type: "Data Quality", dimension: "Completeness" },
+    category: { application: "NDM", scope: "Data Quality", concern: "Completeness" },
+    domain: "NDM SL",
+    tableName: "twicloud.ipdk_ichm_combe",
+    ticketFor: "other",
+    issueOwner: "Bramantyo Adi",
+    pic: ["Bramantyo Adi", "Rahadian A.", "Dewi Kartika"],
+    priority: "Critical",
     tags: ["twicloud", "incompleteness"],
     ipAddress: "10.21.6.87",
-    status: STATUS.active,
+    status: STATUS.inProgress,
     sla: "<12h",
     upvotes: 0,
     views: 450,
@@ -122,10 +190,16 @@ export const TICKETS = [
     title: "etl_core_sgsn_ericsson_kpi_hourly Reload & Reprocess",
     description:
       "Data KPI hourly perlu di-reload karena tanggal berhasil tidak konsisten dengan control table.",
-    category: { application: "NDM", type: "Data Ingestion", dimension: "Format Data" },
+    category: { application: "NDM", scope: "Data Ingestion", concern: "Format Data" },
+    domain: "NDM AL",
+    tableName: "etl_core_sgsn_ericsson_kpi_hourly",
+    ticketFor: "self",
+    issueOwner: "Rahadian A.",
+    pic: ["Rahadian A.", "Siti Nurhaliza", "Ivan Nurcahyo"],
+    priority: "Medium",
     tags: ["etl_core_sgsn", "reprocess"],
     ipAddress: "10.22.1.34",
-    status: STATUS.done,
+    status: STATUS.closed,
     sla: "<12h",
     upvotes: 3,
     views: 1280,
@@ -158,10 +232,16 @@ export const TICKETS = [
     title: "Validity kpi RAN Ericsson turun drastis",
     description:
       "Nilai validity_kpi pada default.etl_cell_5g_ran_ericsson_kpi_daily turun dari 98% ke 61% sejak kemarin.",
-    category: { application: "NDM", type: "Data Quality", dimension: "Validity" },
+    category: { application: "NDM", scope: "Data Quality", concern: "Validity" },
+    domain: "NDM AL",
+    tableName: "default.etl_cell_5g_ran_ericsson_kpi_daily",
+    ticketFor: "self",
+    issueOwner: "Dewi Kartika",
+    pic: ["Nabila Putri"],
+    priority: "Critical",
     tags: ["ran_ericsson", "validity_kpi"],
     ipAddress: "10.21.9.55",
-    status: STATUS.backlog,
+    status: STATUS.open,
     sla: "<12h",
     upvotes: 5,
     views: 210,
@@ -175,10 +255,16 @@ export const TICKETS = [
     title: "Akses table reference.core_control_table ditolak",
     description:
       "Beberapa user group tidak bisa query reference.core_control_table sejak rotasi kredensial minggu lalu.",
-    category: { application: "NDM", type: "Keamanan dan akses table", dimension: "Access Control" },
+    category: { application: "NDM", scope: "Keamanan dan akses table", concern: "Access Control" },
+    domain: "NDM SL",
+    tableName: "reference.core_control_table",
+    ticketFor: "other",
+    issueOwner: "Siti Nurhaliza",
+    pic: ["Siti Nurhaliza", "Bramantyo Adi", "Nabila Putri"],
+    priority: "Low",
     tags: ["access_denied", "core_control_table"],
     ipAddress: "10.23.2.17",
-    status: STATUS.backlog,
+    status: STATUS.open,
     sla: "<12h",
     upvotes: 2,
     views: 88,
@@ -192,10 +278,16 @@ export const TICKETS = [
     title: "Format tanggal tidak konsisten di base.oss_core_vas_sms_msc_hh",
     description:
       "Kolom date_end memakai format campuran dd/mm/yyyy dan yyyy-mm-dd pada beberapa partisi.",
-    category: { application: "NDM", type: "Data Ingestion", dimension: "Format Data" },
+    category: { application: "NDM", scope: "Data Ingestion", concern: "Format Data" },
+    domain: "NDM AL",
+    tableName: "base.oss_core_vas_sms_msc_hh",
+    ticketFor: "self",
+    issueOwner: "Nabila Putri",
+    pic: ["Ivan Nurcahyo"],
+    priority: "Medium",
     tags: ["oss_core_vas", "format_date"],
     ipAddress: "10.22.7.63",
-    status: STATUS.active,
+    status: STATUS.solved,
     sla: "<12h",
     upvotes: 4,
     views: 156,
@@ -217,10 +309,16 @@ export const TICKETS = [
     title: "Duplicate rows pada smy.etl_core_cs_nokia_gcs_dd",
     description:
       "Ditemukan duplikasi baris pada window tanggal 8-9 Juli, kemungkinan re-ingest ganda.",
-    category: { application: "NDM", type: "Data Quality", dimension: "Completeness" },
+    category: { application: "NDM", scope: "Data Quality", concern: "Completeness" },
+    domain: "NDM SL",
+    tableName: "smy.etl_core_cs_nokia_gcs_dd",
+    ticketFor: "self",
+    issueOwner: "Fengky Pratama",
+    pic: ["Rahadian A.", "Dewi Kartika", "Ivan Nurcahyo"],
+    priority: "Low",
     tags: ["core_cs_nokia", "duplicate"],
     ipAddress: "10.21.3.201",
-    status: STATUS.done,
+    status: STATUS.closed,
     sla: "<12h",
     upvotes: 1,
     views: 342,
@@ -239,6 +337,29 @@ export const TICKETS = [
       resolutionNotes: "Menambahkan idempotency key pada job ingest, dedup manual untuk data lama.",
     },
   },
+  {
+    id: "NDQR20260705021",
+    author: "Dewi Kartika",
+    createdAt: "2026-07-05T11:15:00",
+    title: "Minor cosmetic mismatch pada validity_kpi dashboard",
+    description:
+      "Label kolom pada dashboard validity_kpi tidak konsisten dengan penamaan di tabel sumber, tidak berdampak ke data.",
+    category: { application: "NDM", scope: "Data Quality", concern: "Validity" },
+    domain: "NDM SL",
+    tableName: "default.icdm_validity_daily_chk",
+    ticketFor: "self",
+    issueOwner: "Dewi Kartika",
+    pic: ["Nabila Putri", "Ivan Nurcahyo", "Bramantyo Adi"],
+    priority: "Low",
+    tags: ["validity_kpi", "cosmetic"],
+    ipAddress: "10.21.9.77",
+    status: STATUS.open,
+    sla: "<12h",
+    upvotes: 0,
+    views: 5,
+    replies: [],
+    resolution: null,
+  },
 ]
 
 export function ticketAuthorInitials(name) {
@@ -247,6 +368,10 @@ export function ticketAuthorInitials(name) {
 
 export function ticketAuthorEmail(name) {
   return emailOf(name)
+}
+
+export function ticketAuthorAvatarUrl(name) {
+  return avatarUrlOf(name)
 }
 
 export function getTicketById(id) {

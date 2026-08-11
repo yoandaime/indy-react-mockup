@@ -1,8 +1,11 @@
 import { useMemo, useRef, useState } from "react"
-import { Link, useOutletContext, useParams } from "react-router-dom"
+import { Link, useLocation, useOutletContext, useParams } from "react-router-dom"
 import { notifySuccess } from "@/lib/toast"
 import {
   ArrowLeft,
+  Bookmark,
+  Share2,
+  Pencil,
   CircleAlert,
   ThumbsUp,
   Eye,
@@ -16,12 +19,33 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { MultiSelect } from "@/components/ui/multi-select"
 import StatusBadge from "@/components/ticketing/StatusBadge"
 import CloseArchiveDialog from "@/components/ticketing/CloseArchiveDialog"
-import { STATUS, ticketAuthorEmail, ticketAuthorInitials } from "@/data/ticketingData"
+import PicChipList from "@/components/ticketing/PicChipList"
+import PriorityBadge from "@/components/ticketing/PriorityBadge"
+import {
+  STATUS,
+  PRIORITY_META,
+  DOMAIN_OPTIONS,
+  PIC_OPTIONS,
+  ticketAuthorEmail,
+  ticketAuthorInitials,
+  ticketAuthorAvatarUrl,
+} from "@/data/ticketingData"
 import { cn } from "@/lib/utils"
+
+const EDITABLE_STATUSES = [STATUS.open, STATUS.inProgress, STATUS.solved]
+const PRIORITY_OPTIONS = Object.keys(PRIORITY_META)
 
 function formatDateTime(iso) {
   return new Date(iso).toLocaleString("en-GB", {
@@ -35,6 +59,15 @@ function formatDateTime(iso) {
 
 function Dot({ className }) {
   return <span className={cn("size-1.5 shrink-0 rounded-full bg-neutral-300", className)} />
+}
+
+function DetailRow({ label, children }) {
+  return (
+    <div className="flex w-full items-center gap-5">
+      <span className="w-[90px] shrink-0 text-xs text-neutral-600">{label}</span>
+      {children}
+    </div>
+  )
 }
 
 function CopyTicketIdBadge({ id }) {
@@ -52,7 +85,7 @@ function CopyTicketIdBadge({ id }) {
 
   return (
     <span className="flex items-center gap-1 rounded-lg bg-neutral-100 px-2 py-0.5 text-xs text-neutral-900">
-      Ticket ID: {id}
+      {id}
       <Tooltip>
         <TooltipTrigger
           render={
@@ -83,7 +116,7 @@ function Breadcrumb({ items }) {
       {items.map((item, i) => (
         <span key={item} className="flex items-center gap-1">
           {i > 0 && <ChevronRight className="size-3.5 shrink-0 text-neutral-400" />}
-          <span className="text-sm text-neutral-900">{item}</span>
+          <span className="text-xs text-neutral-900">{item}</span>
         </span>
       ))}
     </div>
@@ -92,19 +125,25 @@ function Breadcrumb({ items }) {
 
 export default function TicketingDetailPage() {
   const { id } = useParams()
+  const { pathname } = useLocation()
   const { tickets, setTickets } = useOutletContext()
   const ticket = useMemo(() => tickets.find((t) => t.id === id), [tickets, id])
+  const backTo = pathname.startsWith("/ticketing/admin/content-moderation")
+    ? "/ticketing/admin/content-moderation"
+    : "/ticketing"
 
   const [closeOpen, setCloseOpen] = useState(false)
   const [showAudit, setShowAudit] = useState(true)
   const [replyText, setReplyText] = useState("")
   const [replyImage, setReplyImage] = useState(null)
+  const [editMode, setEditMode] = useState(false)
+  const [draft, setDraft] = useState(null)
   const fileInputRef = useRef(null)
 
   if (!ticket) {
     return (
       <div className="min-w-0 flex-1 space-y-4 bg-neutral-100 p-6">
-        <Button variant="ghost" size="sm" nativeButton={false} render={<Link to="/ticketing" />}>
+        <Button variant="ghost" size="sm" nativeButton={false} render={<Link to={backTo} />}>
           <ArrowLeft className="size-4" />
           Back
         </Button>
@@ -115,7 +154,7 @@ export default function TicketingDetailPage() {
     )
   }
 
-  const isOpen = ticket.status !== STATUS.done
+  const isOpen = ticket.status !== STATUS.closed
 
   const updateTicket = (updater) => {
     setTickets((prev) => prev.map((t) => (t.id === id ? updater(t) : t)))
@@ -123,6 +162,32 @@ export default function TicketingDetailPage() {
 
   const handleUpvote = () => {
     updateTicket((t) => ({ ...t, upvotes: t.upvotes + 1 }))
+  }
+
+  const startEdit = () => {
+    setDraft({ status: ticket.status, domain: ticket.domain, priority: ticket.priority, pic: ticket.pic })
+    setEditMode(true)
+  }
+
+  const cancelEdit = () => {
+    setEditMode(false)
+    setDraft(null)
+  }
+
+  const isDraftDirty =
+    !!draft &&
+    (draft.status !== ticket.status ||
+      draft.domain !== ticket.domain ||
+      draft.priority !== ticket.priority ||
+      draft.pic.length !== ticket.pic.length ||
+      draft.pic.some((name) => !ticket.pic.includes(name)))
+
+  const saveEdit = () => {
+    if (!draft || !isDraftDirty) return
+    updateTicket((t) => ({ ...t, ...draft }))
+    notifySuccess("Ticket updated", `Ticket ${ticket.id} information has been updated.`)
+    setEditMode(false)
+    setDraft(null)
   }
 
   const handleImagePick = (e) => {
@@ -147,7 +212,7 @@ export default function TicketingDetailPage() {
   }
 
   const handleCloseArchive = (resolution) => {
-    updateTicket((t) => ({ ...t, status: STATUS.done, resolution }))
+    updateTicket((t) => ({ ...t, status: STATUS.closed, resolution }))
     notifySuccess("Ticket closed & archived", `Ticket ${ticket.id} has been closed and archived.`)
   }
 
@@ -155,77 +220,181 @@ export default function TicketingDetailPage() {
     <div className="flex min-w-0 flex-1 flex-col bg-neutral-100">
       <div className="flex shrink-0 flex-col items-start gap-4 border-b border-neutral-200 bg-white px-36 py-6 shadow-xs">
         <div className="flex w-full items-start justify-between">
-          <Button variant="ghost" size="sm" className="w-fit" nativeButton={false} render={<Link to="/ticketing" />}>
+          <Button variant="ghost" size="sm" className="w-fit" nativeButton={false} render={<Link to={backTo} />}>
             <ArrowLeft className="size-4" />
             Back
           </Button>
-          {isOpen && (
-            <Button onClick={() => setCloseOpen(true)}>Submit Close & Archive</Button>
-          )}
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="icon" aria-label="Bookmark">
+              <Bookmark className="size-4" />
+            </Button>
+            <Button variant="outline" size="icon" aria-label="Share">
+              <Share2 className="size-4" />
+            </Button>
+            {isOpen && (
+              editMode ? (
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" onClick={cancelEdit}>
+                    Cancel
+                  </Button>
+                  <Button onClick={saveEdit} disabled={!isDraftDirty}>
+                    Save
+                  </Button>
+                </div>
+              ) : (
+                <Button variant="outline" onClick={startEdit}>
+                  <Pencil className="size-4" />
+                  Edit
+                </Button>
+              )
+            )}
+            {isOpen && (
+              <Button onClick={() => setCloseOpen(true)}>Submit Close & Archive</Button>
+            )}
+          </div>
         </div>
 
         <div className="flex w-full flex-col gap-4.5">
-          <div className="flex w-full flex-col gap-4 rounded-xl border border-neutral-200 p-6 shadow-xs">
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <StatusBadge status={ticket.status} />
-                <span className="rounded-lg bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                  SLA {ticket.sla}
-                </span>
-                <CopyTicketIdBadge id={ticket.id} />
-                <Dot />
-                <span className="text-sm text-neutral-900">IP Address: {ticket.ipAddress || "—"}</span>
-                <Dot />
-                <Breadcrumb
-                  items={[
-                    ticket.kind ?? "Kendala",
-                    ticket.category.application,
-                    ticket.category.type,
-                    ticket.category.dimension,
-                  ]}
-                />
+          <div className="flex w-full flex-col rounded-tl-[14px] rounded-tr-[14px] rounded-bl-[22px] rounded-br-[22px] border border-neutral-200 bg-neutral-100 p-[5px]">
+            <div className="flex w-full flex-col gap-4 overflow-hidden rounded-tl-[14px] rounded-tr-[14px] rounded-bl-[22px] rounded-br-[22px] border border-neutral-200 bg-white p-6">
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-2.5">
+                  <Avatar>
+                    {ticketAuthorAvatarUrl(ticket.author) && (
+                      <AvatarImage src={ticketAuthorAvatarUrl(ticket.author)} alt={ticket.author} />
+                    )}
+                    <AvatarFallback className="font-semibold">{ticketAuthorInitials(ticket.author)}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">{ticket.author}</p>
+                    <p className="text-xs text-neutral-600">{ticketAuthorEmail(ticket.author)}</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <h1 className="text-3xl leading-[30px] font-semibold tracking-[-1px] text-foreground">
+                    {ticket.title}
+                  </h1>
+                  <p className="text-base leading-6 text-foreground">{ticket.description}</p>
+                </div>
+
+                <div className="flex flex-wrap gap-2 text-xs text-sky-600">
+                  {ticket.tags.map((tag) => (
+                    <span key={tag}>#{tag}</span>
+                  ))}
+                </div>
               </div>
+
               <div className="h-px w-full bg-neutral-200" />
-            </div>
 
-            <div className="flex items-center gap-2.5">
-              <Avatar>
-                <AvatarFallback className="font-semibold">{ticketAuthorInitials(ticket.author)}</AvatarFallback>
-              </Avatar>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground">{ticket.author}</p>
-                <p className="text-xs text-neutral-600">{ticketAuthorEmail(ticket.author)}</p>
+              <div className="flex flex-col gap-2.5">
+                <DetailRow label="Status">
+                  {editMode ? (
+                    <Select value={draft.status} onValueChange={(status) => setDraft((d) => ({ ...d, status }))}>
+                      <SelectTrigger size="sm" className="h-7">
+                        <SelectValue>{(status) => <StatusBadge status={status} />}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {EDITABLE_STATUSES.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            <StatusBadge status={status} />
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <StatusBadge status={ticket.status} />
+                  )}
+                </DetailRow>
+                <DetailRow label="SLA">
+                  <span className="rounded-lg bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                    SLA {ticket.sla}
+                  </span>
+                </DetailRow>
+                <DetailRow label="Ticket ID">
+                  <CopyTicketIdBadge id={ticket.id} />
+                </DetailRow>
+                <DetailRow label="Issue Category">
+                  <Breadcrumb
+                    items={[
+                      ticket.kind ?? "Kendala",
+                      ticket.category.application,
+                      ticket.category.scope,
+                      ticket.category.concern,
+                    ]}
+                  />
+                </DetailRow>
+                <DetailRow label="Domain">
+                  {editMode ? (
+                    <Select value={draft.domain} onValueChange={(domain) => setDraft((d) => ({ ...d, domain }))}>
+                      <SelectTrigger size="sm" className="h-7">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DOMAIN_OPTIONS.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className="text-xs text-neutral-900">{ticket.domain || "—"}</span>
+                  )}
+                </DetailRow>
+                <DetailRow label="Table Name">
+                  <span className="text-xs text-neutral-900">{ticket.tableName || "—"}</span>
+                </DetailRow>
+                <DetailRow label="IP Address">
+                  <span className="text-xs text-neutral-900">{ticket.ipAddress || "—"}</span>
+                </DetailRow>
+                <DetailRow label="Priority">
+                  {editMode ? (
+                    <Select value={draft.priority} onValueChange={(priority) => setDraft((d) => ({ ...d, priority }))}>
+                      <SelectTrigger size="sm" className="h-7">
+                        <SelectValue>{(priority) => <PriorityBadge priority={priority} />}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PRIORITY_OPTIONS.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            <PriorityBadge priority={option} />
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <PriorityBadge priority={ticket.priority} />
+                  )}
+                </DetailRow>
+                <DetailRow label="PIC">
+                  {editMode ? (
+                    <MultiSelect
+                      value={draft.pic}
+                      onValueChange={(pic) => setDraft((d) => ({ ...d, pic }))}
+                      options={PIC_OPTIONS}
+                      placeholder="Select PIC(s)"
+                      className="max-w-sm"
+                    />
+                  ) : (
+                    <PicChipList pic={ticket.pic} />
+                  )}
+                </DetailRow>
               </div>
             </div>
 
-            <div className="flex flex-col gap-3">
-              <h1 className="text-3xl leading-[30px] font-semibold tracking-[-1px] text-foreground">
-                {ticket.title}
-              </h1>
-              <p className="text-base leading-6 text-foreground">{ticket.description}</p>
-            </div>
-
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-wrap gap-2 text-xs text-sky-600">
-                {ticket.tags.map((tag) => (
-                  <span key={tag}>#{tag}</span>
-                ))}
-              </div>
-              <div className="h-px w-full bg-neutral-200" />
-              <div className="flex items-center gap-3">
-                <Button variant="outline" onClick={handleUpvote}>
-                  <ThumbsUp className="size-4" />
-                  {ticket.upvotes} {ticket.upvotes === 1 ? "Upvote" : "Upvotes"}
-                </Button>
-                <span className="flex items-center gap-1 text-sm text-neutral-600">
-                  <MessageSquare className="size-4.5" />
-                  {ticket.replies.length} replies
-                </span>
-                <span className="flex items-center gap-1 text-sm text-neutral-600">
-                  <Eye className="size-4.5" />
-                  {ticket.views} {ticket.views === 1 ? "view" : "views"}
-                </span>
-              </div>
+            <div className="flex items-center gap-3 p-2.5">
+              <Button variant="outline" onClick={handleUpvote}>
+                <ThumbsUp className="size-4" />
+                {ticket.upvotes} {ticket.upvotes === 1 ? "Upvote" : "Upvotes"}
+              </Button>
+              <span className="flex items-center gap-1 text-sm text-neutral-600">
+                <MessageSquare className="size-4.5" />
+                {ticket.replies.length} replies
+              </span>
+              <span className="flex items-center gap-1 text-sm text-neutral-600">
+                <Eye className="size-4.5" />
+                {ticket.views} {ticket.views === 1 ? "view" : "views"}
+              </span>
             </div>
           </div>
 
