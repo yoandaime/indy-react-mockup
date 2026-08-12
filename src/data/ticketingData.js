@@ -3,6 +3,7 @@
 export const CURRENT_USER = "Antonio Nusa"
 
 export const STATUS = {
+  pending: "pending",
   open: "open",
   inProgress: "inProgress",
   solved: "solved",
@@ -10,6 +11,14 @@ export const STATUS = {
 }
 
 export const STATUS_META = {
+  pending: {
+    label: "Pending",
+    archiveLabel: "Pending",
+    badgeClass: "bg-gray-700 text-gray-50",
+    dotClass: "bg-gray-50",
+    outlineClass: "bg-gray-50 border-gray-100 text-gray-700",
+    outlineDotClass: "bg-gray-700",
+  },
   open: {
     label: "Open",
     archiveLabel: "Terkirim",
@@ -65,7 +74,7 @@ export const PRIORITY_META = {
   },
 }
 
-export const DOMAIN_OPTIONS = ["NDM AL", "NDM SL"]
+export const DOMAIN_OPTIONS = ["NDM AL", "NDM SL", "Other"]
 
 export const TABLE_NAME_OPTIONS = [
   "default.icdm_icbw_cr",
@@ -77,6 +86,20 @@ export const TABLE_NAME_OPTIONS = [
   "smy.etl_core_cs_nokia_gcs_dd",
 ]
 
+export const DOMAIN_TABLE_NAMES = {
+  "NDM AL": [
+    "default.icdm_icbw_cr",
+    "etl_core_sgsn_ericsson_kpi_hourly",
+    "default.etl_cell_5g_ran_ericsson_kpi_daily",
+    "base.oss_core_vas_sms_msc_hh",
+  ],
+  "NDM SL": [
+    "twicloud.ipdk_ichm_combe",
+    "reference.core_control_table",
+    "smy.etl_core_cs_nokia_gcs_dd",
+  ],
+}
+
 export const PIC_OPTIONS = [
   "Bramantyo Adi",
   "Siti Nurhaliza",
@@ -84,6 +107,43 @@ export const PIC_OPTIONS = [
   "Nabila Putri",
   "Dewi Kartika",
   "Ivan Nurcahyo",
+]
+
+export const DOMAIN_PIC_MAP = {
+  "NDM AL": ["Bramantyo Adi", "Siti Nurhaliza", "Nabila Putri"],
+  "NDM SL": ["Rahadian A.", "Dewi Kartika", "Ivan Nurcahyo"],
+}
+
+export const PIC_PHONE_MAP = {
+  "Bramantyo Adi": "+628123456701",
+  "Siti Nurhaliza": "+628134567802",
+  "Rahadian A.": "+628112345603",
+  "Nabila Putri": "+628145678904",
+  "Dewi Kartika": "+628156789005",
+  "Ivan Nurcahyo": "+628167890106",
+}
+
+export function picPhone(name) {
+  return PIC_PHONE_MAP[name] ?? null
+}
+
+export function waLinkFromPhone(phone) {
+  return `https://wa.me/${phone.replace(/[^0-9]/g, "")}`
+}
+
+export const REGION_OPTIONS = [
+  "Nationwide",
+  "Sumbagut",
+  "Sumbagsel",
+  "Sumbagteng",
+  "Jabotabek",
+  "Jabar",
+  "Jateng-DIY",
+  "Jatim",
+  "Kalimantan",
+  "Sulawesi",
+  "Bali-Nusra",
+  "Maluku-Papua",
 ]
 
 export const DEFAULT_CATEGORY_TREE = [

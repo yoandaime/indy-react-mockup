@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import {
@@ -44,7 +45,7 @@ import {
 } from "@/data/ticketingData"
 import { cn } from "@/lib/utils"
 
-const EDITABLE_STATUSES = [STATUS.open, STATUS.inProgress, STATUS.solved]
+const EDITABLE_STATUSES = [STATUS.pending, STATUS.open, STATUS.inProgress, STATUS.solved]
 const PRIORITY_OPTIONS = Object.keys(PRIORITY_META)
 
 function formatDateTime(iso) {
@@ -136,6 +137,7 @@ export default function TicketingDetailPage() {
   const [showAudit, setShowAudit] = useState(true)
   const [replyText, setReplyText] = useState("")
   const [replyImage, setReplyImage] = useState(null)
+  const [previewImage, setPreviewImage] = useState(null)
   const [editMode, setEditMode] = useState(false)
   const [draft, setDraft] = useState(null)
   const fileInputRef = useRef(null)
@@ -195,6 +197,17 @@ export default function TicketingDetailPage() {
     if (!file) return
     setReplyImage({ name: file.name, url: URL.createObjectURL(file) })
     e.target.value = ""
+  }
+
+  const handleReplyPaste = (e) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+    const imageItem = Array.from(items).find((item) => item.type.startsWith("image/"))
+    if (!imageItem) return
+    const file = imageItem.getAsFile()
+    if (!file) return
+    e.preventDefault()
+    setReplyImage({ name: file.name || "pasted-image.png", url: URL.createObjectURL(file) })
   }
 
   const handleReplySubmit = () => {
@@ -462,11 +475,18 @@ export default function TicketingDetailPage() {
                     </div>
                     {reply.text && <p className="text-base leading-6 text-foreground">{reply.text}</p>}
                     {reply.image && (
-                      <img
-                        src={reply.image}
-                        alt="attachment"
-                        className="mt-2 max-h-40 rounded-md border object-cover"
-                      />
+                      <button
+                        type="button"
+                        onClick={() => setPreviewImage({ url: reply.image, name: "Attachment" })}
+                        className="mt-2 block shrink-0"
+                        aria-label="Preview attached image"
+                      >
+                        <img
+                          src={reply.image}
+                          alt="attachment"
+                          className="max-h-40 rounded-md border object-cover"
+                        />
+                      </button>
                     )}
                   </div>
                 </div>
@@ -480,25 +500,39 @@ export default function TicketingDetailPage() {
             </div>
 
             <div className="flex flex-col gap-3">
-              <Textarea
-                placeholder="Type your message here."
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                className="min-h-[76px] shadow-xs"
-              />
-              {replyImage && (
-                <div className="flex w-fit items-center gap-2 rounded-lg border bg-neutral-50 py-1 pr-2 pl-1">
-                  <img src={replyImage.url} alt={replyImage.name} className="size-10 rounded object-cover" />
-                  <span className="max-w-40 truncate text-xs text-neutral-600">{replyImage.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => setReplyImage(null)}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                </div>
-              )}
+              <div className="flex min-h-[76px] w-full flex-col gap-4 rounded-lg border border-input bg-transparent px-2.5 py-2 shadow-xs focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
+                {replyImage && (
+                  <div className="flex w-fit items-center gap-2 rounded-lg border bg-neutral-50 py-1 pr-2 pl-1">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewImage({ url: replyImage.url, name: replyImage.name })}
+                      className="shrink-0"
+                      aria-label="Preview attached image"
+                    >
+                      <img src={replyImage.url} alt={replyImage.name} className="size-10 rounded object-cover" />
+                    </button>
+                    <span className="max-w-40 truncate text-xs text-neutral-600">{replyImage.name}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setReplyImage(null)
+                      }}
+                      aria-label="Remove attached image"
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                )}
+                <Textarea
+                  placeholder="Type your message here."
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  onPaste={handleReplyPaste}
+                  className="min-h-0 flex-1 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
+                />
+              </div>
               <div className="flex items-center justify-between">
                 <input
                   ref={fileInputRef}
@@ -521,6 +555,19 @@ export default function TicketingDetailPage() {
       </div>
 
       <CloseArchiveDialog open={closeOpen} onOpenChange={setCloseOpen} onSubmit={handleCloseArchive} />
+
+      <Dialog open={!!previewImage} onOpenChange={(open) => !open && setPreviewImage(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogTitle>{previewImage?.name}</DialogTitle>
+          {previewImage && (
+            <img
+              src={previewImage.url}
+              alt={previewImage.name}
+              className="max-h-[70vh] w-full rounded-lg object-contain"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

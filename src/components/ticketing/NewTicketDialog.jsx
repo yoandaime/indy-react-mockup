@@ -18,14 +18,15 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { MultiSelect } from "@/components/ui/multi-select"
+import { Combobox } from "@/components/ui/combobox"
 import FieldLabel from "@/components/ticketing/FieldLabel"
 import {
   CURRENT_USER,
   DOMAIN_OPTIONS,
-  TABLE_NAME_OPTIONS,
+  DOMAIN_TABLE_NAMES,
   PIC_OPTIONS,
   PRIORITY_META,
+  REGION_OPTIONS,
 } from "@/data/ticketingData"
 
 const TICKET_KIND_OPTIONS = ["Kendala", "Request"]
@@ -43,11 +44,13 @@ const EMPTY_FORM = {
   scope: "",
   concern: "",
   domain: "",
+  domainCustom: false,
   tableName: "",
+  tableNameOther: "",
+  region: "",
   title: "",
   ipAddress: "",
   description: "",
-  pic: [],
   priority: "",
   tags: "",
 }
@@ -104,6 +107,23 @@ export default function NewTicketDialog({ open, onOpenChange, onCreate }) {
     setForm((f) => ({ ...f, concern: value }))
   }
 
+  const handleDomainChange = (value) => {
+    if (value === "Other") {
+      setForm((f) => ({ ...f, domain: "", domainCustom: true, tableName: "", tableNameOther: "" }))
+      return
+    }
+    setForm((f) => ({
+      ...f,
+      domain: value,
+      domainCustom: !DOMAIN_TABLE_NAMES[value],
+      tableName: "",
+      tableNameOther: "",
+    }))
+  }
+
+  const isCustomDomain = form.domainCustom
+  const tableNameOptions = DOMAIN_TABLE_NAMES[form.domain] ?? []
+
   const reset = () => {
     setForm(EMPTY_FORM)
     setError("")
@@ -116,13 +136,15 @@ export default function NewTicketDialog({ open, onOpenChange, onCreate }) {
 
   const handleSubmit = () => {
     const issueOwner = form.ticketFor === "self" ? CURRENT_USER : form.issueOwner.trim()
+    const domainValue = form.domain.trim()
+    const tableNameValue = isCustomDomain ? form.tableNameOther.trim() : form.tableName
     if (
       !form.kind.trim() ||
       !form.application.trim() ||
       !form.scope.trim() ||
       !form.concern.trim() ||
-      !form.domain.trim() ||
-      !form.tableName.trim() ||
+      !domainValue ||
+      !tableNameValue ||
       !form.title.trim() ||
       !form.ipAddress.trim() ||
       !form.description.trim() ||
@@ -139,14 +161,14 @@ export default function NewTicketDialog({ open, onOpenChange, onCreate }) {
         scope: form.scope.trim(),
         concern: form.concern.trim(),
       },
-      domain: form.domain,
-      tableName: form.tableName.trim(),
+      domain: domainValue,
+      tableName: tableNameValue,
+      region: form.region,
       ticketFor: form.ticketFor,
       issueOwner,
       title: form.title.trim(),
       ipAddress: form.ipAddress.trim(),
       description: form.description.trim(),
-      pic: form.pic,
       priority: form.priority,
       tags: form.tags
         .split(",")
@@ -248,57 +270,69 @@ export default function NewTicketDialog({ open, onOpenChange, onCreate }) {
               <FieldLabel htmlFor="ticket-domain" required className="text-sm font-medium text-foreground">
                 Domain
               </FieldLabel>
-              <Select
+              <Combobox
+                id="ticket-domain"
                 value={form.domain}
-                onValueChange={(value) => setForm((f) => ({ ...f, domain: value }))}
-              >
-                <SelectTrigger id="ticket-domain" className="h-9 w-full shadow-xs">
-                  <SelectValue placeholder="Select" className="truncate" />
-                </SelectTrigger>
-                <SelectContent>
-                  {DOMAIN_OPTIONS.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onValueChange={handleDomainChange}
+                options={DOMAIN_OPTIONS}
+                placeholder={isCustomDomain ? "Type domain name..." : "Select"}
+                className="w-full"
+              />
             </div>
 
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               <FieldLabel htmlFor="ticket-table-name" required className="text-sm font-medium text-foreground">
                 Table Name
               </FieldLabel>
+              {isCustomDomain ? (
+                <Input
+                  id="ticket-table-name"
+                  placeholder="Type table name"
+                  value={form.tableNameOther}
+                  onChange={set("tableNameOther")}
+                  className="h-9 shadow-xs"
+                />
+              ) : (
+                <Select
+                  value={form.tableName}
+                  onValueChange={(value) => setForm((f) => ({ ...f, tableName: value }))}
+                  disabled={!form.domain}
+                >
+                  <SelectTrigger id="ticket-table-name" className="h-9 w-full shadow-xs">
+                    <SelectValue placeholder="Select" className="truncate" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tableNameOptions.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-start gap-4">
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <FieldLabel htmlFor="ticket-region" className="text-sm font-medium text-foreground">
+                Region
+              </FieldLabel>
               <Select
-                value={form.tableName}
-                onValueChange={(value) => setForm((f) => ({ ...f, tableName: value }))}
+                value={form.region}
+                onValueChange={(value) => setForm((f) => ({ ...f, region: value }))}
               >
-                <SelectTrigger id="ticket-table-name" className="h-9 w-full shadow-xs">
+                <SelectTrigger id="ticket-region" className="h-9 w-full shadow-xs">
                   <SelectValue placeholder="Select" className="truncate" />
                 </SelectTrigger>
                 <SelectContent>
-                  {TABLE_NAME_OPTIONS.map((option) => (
+                  {REGION_OPTIONS.map((option) => (
                     <SelectItem key={option} value={option}>
                       {option}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-4">
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <FieldLabel htmlFor="ticket-pic" className="text-sm font-medium text-foreground">
-                PIC
-              </FieldLabel>
-              <MultiSelect
-                id="ticket-pic"
-                placeholder="Select PIC(s)"
-                value={form.pic}
-                onValueChange={(value) => setForm((f) => ({ ...f, pic: value }))}
-                options={PIC_OPTIONS}
-              />
             </div>
 
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">

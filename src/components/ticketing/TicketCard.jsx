@@ -11,7 +11,15 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
 }
 
-export default function TicketCard({ ticket, draggable, onDragStart, className, hideStatus, archive }) {
+export default function TicketCard({
+  ticket,
+  draggable,
+  onDragStart,
+  className,
+  hideStatus,
+  archive,
+  onPicPopoverOpenChange,
+}) {
   const navigate = useNavigate()
 
   return (
@@ -30,7 +38,7 @@ export default function TicketCard({ ticket, draggable, onDragStart, className, 
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2.5">
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <Avatar>
             {ticketAuthorAvatarUrl(ticket.author) && (
               <AvatarImage src={ticketAuthorAvatarUrl(ticket.author)} alt={ticket.author} />
@@ -77,7 +85,7 @@ export default function TicketCard({ ticket, draggable, onDragStart, className, 
               {ticket.views} {ticket.views === 1 ? "view" : "views"}
             </span>
           </div>
-          <PicAvatarStack pic={ticket.pic} />
+          <PicAvatarStack pic={ticket.pic} onPopoverOpenChange={onPicPopoverOpenChange} />
         </div>
       </div>
     </div>

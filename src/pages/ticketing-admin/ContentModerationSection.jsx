@@ -7,6 +7,7 @@ import { STATUS } from "@/data/ticketingData"
 export default function ContentModerationSection() {
   const { tickets, setTickets, pinnedIds, setPinnedIds } = useOutletContext()
   const [tab, setTab] = useState("all")
+  const [picPopoverOpen, setPicPopoverOpen] = useState(false)
 
   const filtered = useMemo(() => {
     if (tab === "pinned") return tickets.filter((t) => pinnedIds.includes(t.id))
@@ -36,6 +37,9 @@ export default function ContentModerationSection() {
 
   return (
     <div className="w-full flex-1 space-y-4.5 bg-white p-8">
+      {picPopoverOpen && (
+        <div className="fixed inset-0 z-40" onClick={(e) => e.stopPropagation()} />
+      )}
       <div>
         <h1 className="text-lg font-semibold text-foreground">Content Moderation</h1>
         <p className="text-sm text-muted-foreground">
@@ -64,6 +68,7 @@ export default function ContentModerationSection() {
               onTogglePin={() => togglePin(ticket.id)}
               onToggleSolved={() => toggleSolved(ticket)}
               onDelete={() => handleDelete(ticket.id)}
+              onPicPopoverOpenChange={setPicPopoverOpen}
             />
           )
         })}
