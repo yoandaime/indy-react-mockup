@@ -315,6 +315,41 @@ export const DEFAULT_CATEGORY_TREE = [
       { name: "Keamanan dan akses table" },
     ],
   },
+  {
+    name: "Subscriber Data",
+    children: [
+      {
+        name: "Data Quality",
+        children: [{ name: "Completeness" }, { name: "Consistency" }],
+      },
+      {
+        name: "Data Enrichment",
+        children: [{ name: "Profile Matching" }],
+      },
+      { name: "Retention Policy" },
+    ],
+  },
+  {
+    name: "Billing Data",
+    children: [
+      {
+        name: "Data Quality",
+        children: [{ name: "Accuracy" }, { name: "Timeliness" }],
+      },
+      { name: "Reconciliation" },
+    ],
+  },
+  {
+    name: "Network Performance",
+    children: [
+      { name: "KPI Threshold" },
+      { name: "Anomaly Detection" },
+    ],
+  },
+  {
+    name: "Master Data Management",
+    children: [{ name: "Data Governance" }, { name: "Reference Table" }],
+  },
 ]
 
 function initialsOf(name) {
