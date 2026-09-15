@@ -48,33 +48,35 @@ export default function TicketingSidebar({
 
   return (
     <aside className="flex h-full w-[240px] shrink-0 flex-col gap-4 overflow-y-auto border-r bg-white p-4">
-      <div className="flex items-center justify-between">
-        <p className="truncate px-2 text-xs font-semibold tracking-wide text-neutral-500 uppercase">NDQ Forum</p>
-        <button
-          type="button"
-          aria-label="Collapse sidebar"
-          onClick={onCollapse}
-          className="flex size-7 shrink-0 items-center justify-center rounded-md text-neutral-600 hover:bg-neutral-100 hover:text-foreground"
-        >
-          <PanelLeft className="size-3.5" />
-        </button>
-      </div>
-
-      <div className="flex flex-col gap-0.5">
-        {TASK_FILTER_NAV_ITEMS.map(({ value, label, icon: Icon }) => (
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <p className="truncate px-2 text-xs font-semibold tracking-wide text-neutral-500 uppercase">NDQ Forum</p>
           <button
-            key={value}
             type="button"
-            onClick={() => onTaskFilterChange(value)}
-            className={cn(
-              "flex h-8 items-center gap-2 rounded-md px-2 text-sm text-neutral-700 hover:bg-muted",
-              onBoardRoute && taskFilter === value && "bg-[#fdecee] text-primary hover:bg-[#fdecee]"
-            )}
+            aria-label="Collapse sidebar"
+            onClick={onCollapse}
+            className="flex size-7 shrink-0 items-center justify-center rounded-md text-neutral-600 hover:bg-neutral-100 hover:text-foreground"
           >
-            <Icon className="size-4 shrink-0" />
-            <span className="truncate">{label}</span>
+            <PanelLeft className="size-3.5" />
           </button>
-        ))}
+        </div>
+
+        <div className="flex flex-col gap-0.5">
+          {TASK_FILTER_NAV_ITEMS.map(({ value, label, icon: Icon }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => onTaskFilterChange(value)}
+              className={cn(
+                "flex h-8 items-center gap-2 rounded-md px-2 text-sm text-neutral-700 hover:bg-muted",
+                onBoardRoute && taskFilter === value && "bg-[#fdecee] text-primary hover:bg-[#fdecee]"
+              )}
+            >
+              <Icon className="size-4 shrink-0" />
+              <span className="truncate">{label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <Separator />
