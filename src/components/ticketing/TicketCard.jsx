@@ -4,6 +4,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import StatusBadge from "@/components/ticketing/StatusBadge"
 import PicAvatarStack from "@/components/ticketing/PicAvatarStack"
 import PriorityBadge from "@/components/ticketing/PriorityBadge"
+import SlaBadge from "@/components/ticketing/SlaBadge"
 import { ticketAuthorEmail, ticketAuthorInitials, ticketAuthorAvatarUrl } from "@/data/ticketingData"
 import { cn } from "@/lib/utils"
 
@@ -58,11 +59,11 @@ export default function TicketCard({
       <div className="mt-auto flex w-full flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           {!hideStatus && <StatusBadge status={ticket.status} archive={archive} />}
-          <span className="rounded-lg bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-            SLA {ticket.sla}
-          </span>
+          <SlaBadge ticket={ticket} />
           <PriorityBadge priority={ticket.priority} />
         </div>
+
+        <span className="text-xs font-normal text-neutral-600">{ticket.id}</span>
 
         <div className="flex flex-wrap gap-2 text-xs text-sky-600">
           {ticket.tags.map((tag) => (

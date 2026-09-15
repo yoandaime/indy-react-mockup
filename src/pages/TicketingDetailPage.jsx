@@ -1,52 +1,68 @@
 import { useMemo, useRef, useState } from "react"
-import { Link, useLocation, useOutletContext, useParams } from "react-router-dom"
+import { Link, useLocation, useNavigate, useOutletContext, useParams } from "react-router-dom"
 import { notifySuccess } from "@/lib/toast"
 import {
   ArrowLeft,
-  Bookmark,
-  Share2,
-  Pencil,
   CircleAlert,
-  ThumbsUp,
-  Eye,
-  MessageSquare,
-  MessageSquareX,
-  ImageUp,
-  X,
-  ChevronRight,
+  CircleCheck,
   Copy,
   Check,
+  ChevronRight,
+  Eye,
+  History as HistoryIcon,
+  ImageUp,
+  MessageSquare,
+  MessageSquareX,
+  Pause,
+  Pencil,
+  Play,
+  RotateCcw,
+  ThumbsUp,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { MultiSelect } from "@/components/ui/multi-select"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import StatusBadge from "@/components/ticketing/StatusBadge"
 import CloseArchiveDialog from "@/components/ticketing/CloseArchiveDialog"
+import NewTicketDialog from "@/components/ticketing/NewTicketDialog"
+import UpdateTicketDialog from "@/components/ticketing/UpdateTicketDialog"
 import PicChipList from "@/components/ticketing/PicChipList"
 import PriorityBadge from "@/components/ticketing/PriorityBadge"
+import SlaBadge from "@/components/ticketing/SlaBadge"
+import IndyAssistantAlert from "@/components/ticketing/IndyAssistantAlert"
+import TicketHistoryTimeline from "@/components/ticketing/TicketHistoryTimeline"
 import {
+  CURRENT_USER,
   STATUS,
-  PRIORITY_META,
-  DOMAIN_OPTIONS,
-  PIC_OPTIONS,
+  STATUS_META,
+  SLA_TARGET_MINUTES,
+  buildTicketFromDraft,
+  formatSlaDuration,
+  getResponseSlaInfo,
+  getSlaInfo,
+  getTicketHistory,
+  getTicketInsight,
+  getTicketIssues,
   ticketAuthorEmail,
   ticketAuthorInitials,
   ticketAuthorAvatarUrl,
 } from "@/data/ticketingData"
+import { DEFAULT_CATEGORIES } from "@/data/picCategoryData"
 import { cn } from "@/lib/utils"
 
-const EDITABLE_STATUSES = [STATUS.pending, STATUS.open, STATUS.inProgress, STATUS.solved]
-const PRIORITY_OPTIONS = Object.keys(PRIORITY_META)
+const CATEGORY_OPTIONS = DEFAULT_CATEGORIES.map((c) => c.name)
+
+const SUMMARY_TEXT_CLASS = {
+  overdue: "text-red-700",
+  missed: "text-red-700",
+  left: "text-foreground",
+  met: "text-emerald-700",
+  unknown: "text-neutral-500",
+}
 
 function formatDateTime(iso) {
   return new Date(iso).toLocaleString("en-GB", {
@@ -58,14 +74,12 @@ function formatDateTime(iso) {
   })
 }
 
-function Dot({ className }) {
-  return <span className={cn("size-1.5 shrink-0 rounded-full bg-neutral-300", className)} />
-}
-
-function DetailRow({ label, children }) {
+function DetailRow({ label, align = "center", children }) {
   return (
-    <div className="flex w-full items-center gap-5">
-      <span className="w-[90px] shrink-0 text-xs text-neutral-600">{label}</span>
+    <div className={cn("flex w-full gap-5", align === "start" ? "items-start" : "items-center")}>
+      <span className={cn("w-[90px] shrink-0 text-xs text-neutral-600", align === "start" && "pt-0.5")}>
+        {label}
+      </span>
       {children}
     </div>
   )
@@ -113,9 +127,9 @@ function CopyTicketIdBadge({ id }) {
 
 function Breadcrumb({ items }) {
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex flex-wrap items-center gap-1">
       {items.map((item, i) => (
-        <span key={item} className="flex items-center gap-1">
+        <span key={`${item}-${i}`} className="flex items-center gap-1">
           {i > 0 && <ChevronRight className="size-3.5 shrink-0 text-neutral-400" />}
           <span className="text-xs text-neutral-900">{item}</span>
         </span>
@@ -124,22 +138,61 @@ function Breadcrumb({ items }) {
   )
 }
 
+function IssueRows({ issues }) {
+  return (
+    <div className="flex w-full flex-col gap-2.5">
+      {issues.map((issue, index) => (
+        <div key={issue.id ?? index} className="rounded-lg border border-neutral-200 p-3">
+          {issues.length > 1 && (
+            <p className="mb-1 text-xs font-semibold text-neutral-600">Issue {index + 1}</p>
+          )}
+          <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-900">
+            <span>
+              {issue.from}
+              {issue.to && issue.to !== issue.from ? ` → ${issue.to}` : ""}
+            </span>
+            {issue.granularity && (
+              <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-neutral-600">
+                {issue.granularity.toLowerCase()}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-neutral-600">{issue.ipAddress}</p>
+          <p className="text-xs text-neutral-600">{issue.tableName}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function SummaryCard({ label, value, caption }) {
+  return (
+    <div className="flex flex-1 flex-col gap-1 rounded-xl border border-neutral-200 p-4">
+      <p className="text-xs text-neutral-500">{label}</p>
+      {value}
+      {caption && <p className="text-xs text-neutral-500">{caption}</p>}
+    </div>
+  )
+}
+
 export default function TicketingDetailPage() {
   const { id } = useParams()
   const { pathname } = useLocation()
-  const { tickets, setTickets } = useOutletContext()
+  const navigate = useNavigate()
+  const { tickets, setTickets, picCategories } = useOutletContext()
   const ticket = useMemo(() => tickets.find((t) => t.id === id), [tickets, id])
   const backTo = pathname.startsWith("/ticketing/admin/content-moderation")
     ? "/ticketing/admin/content-moderation"
     : "/ticketing"
 
   const [closeOpen, setCloseOpen] = useState(false)
+  const [duplicateOpen, setDuplicateOpen] = useState(false)
+  const [updateOpen, setUpdateOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState("discussion")
   const [showAudit, setShowAudit] = useState(true)
   const [replyText, setReplyText] = useState("")
   const [replyImage, setReplyImage] = useState(null)
   const [previewImage, setPreviewImage] = useState(null)
-  const [editMode, setEditMode] = useState(false)
-  const [draft, setDraft] = useState(null)
   const fileInputRef = useRef(null)
 
   if (!ticket) {
@@ -156,40 +209,129 @@ export default function TicketingDetailPage() {
     )
   }
 
+  const insight = getTicketInsight(ticket)
   const isOpen = ticket.status !== STATUS.closed
+  const showResume = ticket.status === STATUS.open || ticket.status === STATUS.pending
+  const showPutOnHold = ticket.status === STATUS.inProgress
+  const showMarkSolved = isOpen && ticket.status !== STATUS.solved
+  const showReopen = ticket.status === STATUS.solved
+
+  const historyEntries = getTicketHistory(ticket)
+  const responseInfo = getResponseSlaInfo(ticket)
+  const resolutionInfo = getSlaInfo(ticket)
+  const responseTargetMinutes = Math.round((SLA_TARGET_MINUTES[ticket.priority] ?? 0) / 2)
+  const resolutionTargetMinutes = SLA_TARGET_MINUTES[ticket.priority] ?? 0
 
   const updateTicket = (updater) => {
     setTickets((prev) => prev.map((t) => (t.id === id ? updater(t) : t)))
   }
 
+  // Ends any accrued "Put on hold" time as of `now`, returning the fields to
+  // merge into the ticket so hold time is excluded from SLA calculations.
+  const finalizeHold = (t, now) => {
+    if (!t.holdStartedAt) return { totalHoldMinutes: t.totalHoldMinutes ?? 0, holdStartedAt: null }
+    const elapsed = (now.getTime() - new Date(t.holdStartedAt).getTime()) / 60000
+    return { totalHoldMinutes: (t.totalHoldMinutes ?? 0) + elapsed, holdStartedAt: null }
+  }
+
+  // Appends one History tab entry to a ticket, seeding from getTicketHistory
+  // first so older mock tickets (which don't carry a real `history` array
+  // yet) start from an equivalent synthesized baseline.
+  const withHistory = (t, changes) => [
+    ...getTicketHistory(t),
+    {
+      id: `${t.id}-history-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      actor: CURRENT_USER,
+      at: new Date().toISOString(),
+      kind: "change",
+      changes,
+    },
+  ]
+
   const handleUpvote = () => {
     updateTicket((t) => ({ ...t, upvotes: t.upvotes + 1 }))
   }
 
-  const startEdit = () => {
-    setDraft({ status: ticket.status, domain: ticket.domain, priority: ticket.priority, pic: ticket.pic })
-    setEditMode(true)
+  const handleResume = () => {
+    const now = new Date()
+    updateTicket((t) => ({
+      ...t,
+      status: STATUS.inProgress,
+      firstRespondedAt: t.firstRespondedAt ?? now.toISOString(),
+      ...finalizeHold(t, now),
+      history: withHistory(t, [{ label: "STATUS", from: STATUS_META[t.status].label, to: STATUS_META[STATUS.inProgress].label }]),
+    }))
+    notifySuccess("Ticket resumed", `${ticket.id} is back in progress.`)
   }
 
-  const cancelEdit = () => {
-    setEditMode(false)
-    setDraft(null)
+  const handlePutOnHold = () => {
+    const now = new Date()
+    updateTicket((t) => ({
+      ...t,
+      status: STATUS.pending,
+      holdStartedAt: now.toISOString(),
+      history: withHistory(t, [{ label: "STATUS", from: STATUS_META[t.status].label, to: STATUS_META[STATUS.pending].label }]),
+    }))
+    notifySuccess("Ticket put on hold", `${ticket.id} has been put on hold.`)
   }
 
-  const isDraftDirty =
-    !!draft &&
-    (draft.status !== ticket.status ||
-      draft.domain !== ticket.domain ||
-      draft.priority !== ticket.priority ||
-      draft.pic.length !== ticket.pic.length ||
-      draft.pic.some((name) => !ticket.pic.includes(name)))
+  const handleMarkSolved = () => {
+    const now = new Date()
+    updateTicket((t) => ({
+      ...t,
+      status: STATUS.solved,
+      previousStatus: t.status,
+      resolvedAt: now.toISOString(),
+      ...finalizeHold(t, now),
+      history: withHistory(t, [{ label: "STATUS", from: STATUS_META[t.status].label, to: STATUS_META[STATUS.solved].label }]),
+    }))
+    notifySuccess("Ticket marked as solved", `${ticket.id} has been marked as solved.`)
+  }
 
-  const saveEdit = () => {
-    if (!draft || !isDraftDirty) return
-    updateTicket((t) => ({ ...t, ...draft }))
+  const handleReopen = () => {
+    updateTicket((t) => {
+      const nextStatus = t.previousStatus ?? STATUS.inProgress
+      return {
+        ...t,
+        status: nextStatus,
+        resolvedAt: null,
+        history: withHistory(t, [{ label: "STATUS", from: STATUS_META[t.status].label, to: STATUS_META[nextStatus].label }]),
+      }
+    })
+    notifySuccess("Ticket reopened", `${ticket.id} is back in progress.`)
+  }
+
+  const handleUpdateSubmit = (payload) => {
+    updateTicket((t) => {
+      const categoryEntry = picCategories.find((c) => c.name === payload.picCategory)
+      const levelKey = payload.level?.toLowerCase()
+      const escalatedPic = categoryEntry?.[levelKey]
+
+      const changes = []
+      const compare = (label, from, to) => {
+        if (to !== undefined && from !== to) changes.push({ label, from: from ?? "—", to })
+      }
+      compare("CATEGORY", t.picCategory ?? t.category?.application, payload.picCategory)
+      compare("DOMAIN", t.domain, payload.domain)
+      compare("SCOPE", t.category?.scope, payload.category?.scope)
+      compare("CONCERN", t.category?.concern, payload.category?.concern)
+      compare("LEVEL", (t.level ?? "L0").toUpperCase(), payload.level)
+
+      return {
+        ...t,
+        ...payload,
+        pic: escalatedPic && escalatedPic.length > 0 ? escalatedPic : t.pic,
+        history: changes.length > 0 ? withHistory(t, changes) : getTicketHistory(t),
+      }
+    })
     notifySuccess("Ticket updated", `Ticket ${ticket.id} information has been updated.`)
-    setEditMode(false)
-    setDraft(null)
+  }
+
+  const handleDuplicateCreate = (draft) => {
+    const newTicket = buildTicketFromDraft(tickets, draft)
+    setTickets((prev) => [newTicket, ...prev])
+    notifySuccess("Ticket duplicated", `Ticket ${newTicket.id} has been created from ${ticket.id}.`)
+    navigate(`/ticketing/${newTicket.id}`)
   }
 
   const handleImagePick = (e) => {
@@ -225,7 +367,16 @@ export default function TicketingDetailPage() {
   }
 
   const handleCloseArchive = (resolution) => {
-    updateTicket((t) => ({ ...t, status: STATUS.closed, resolution }))
+    updateTicket((t) => ({
+      ...t,
+      status: STATUS.closed,
+      resolution,
+      resolvedAt: t.resolvedAt ?? new Date().toISOString(),
+      history: withHistory(t, [
+        { label: "STATUS", from: STATUS_META[t.status].label, to: STATUS_META[STATUS.closed].label },
+        { label: "ROOT CAUSE", from: "—", to: resolution.rootCause },
+      ]),
+    }))
     notifySuccess("Ticket closed & archived", `Ticket ${ticket.id} has been closed and archived.`)
   }
 
@@ -237,33 +388,42 @@ export default function TicketingDetailPage() {
             <ArrowLeft className="size-4" />
             Back
           </Button>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="icon" aria-label="Bookmark">
-              <Bookmark className="size-4" />
-            </Button>
-            <Button variant="outline" size="icon" aria-label="Share">
-              <Share2 className="size-4" />
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button variant="outline" onClick={() => setDuplicateOpen(true)}>
+              <Copy className="size-4" />
+              Duplicate
             </Button>
             {isOpen && (
-              editMode ? (
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" onClick={cancelEdit}>
-                    Cancel
-                  </Button>
-                  <Button onClick={saveEdit} disabled={!isDraftDirty}>
-                    Save
-                  </Button>
-                </div>
-              ) : (
-                <Button variant="outline" onClick={startEdit}>
-                  <Pencil className="size-4" />
-                  Edit
-                </Button>
-              )
+              <Button variant="outline" onClick={() => setUpdateOpen(true)}>
+                <Pencil className="size-4" />
+                Update
+              </Button>
             )}
-            {isOpen && (
-              <Button onClick={() => setCloseOpen(true)}>Submit Close & Archive</Button>
+            {showResume && (
+              <Button variant="outline" onClick={handleResume}>
+                <Play className="size-4" />
+                Resume
+              </Button>
             )}
+            {showPutOnHold && (
+              <Button variant="outline" onClick={handlePutOnHold}>
+                <Pause className="size-4" />
+                Put on hold
+              </Button>
+            )}
+            {showMarkSolved && (
+              <Button variant="outline" onClick={handleMarkSolved}>
+                <CircleCheck className="size-4" />
+                Mark as solved
+              </Button>
+            )}
+            {showReopen && (
+              <Button variant="outline" onClick={handleReopen}>
+                <RotateCcw className="size-4" />
+                Reopen
+              </Button>
+            )}
+            {isOpen && <Button onClick={() => setCloseOpen(true)}>Submit Close & Archive</Button>}
           </div>
         </div>
 
@@ -284,12 +444,9 @@ export default function TicketingDetailPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-2">
-                  <h1 className="text-3xl leading-[30px] font-semibold tracking-[-1px] text-foreground">
-                    {ticket.title}
-                  </h1>
-                  <p className="text-base leading-6 text-foreground">{ticket.description}</p>
-                </div>
+                <h1 className="text-3xl leading-[30px] font-semibold tracking-[-1px] text-foreground">
+                  {ticket.title}
+                </h1>
 
                 <div className="flex flex-wrap gap-2 text-xs text-sky-600">
                   {ticket.tags.map((tag) => (
@@ -302,27 +459,10 @@ export default function TicketingDetailPage() {
 
               <div className="flex flex-col gap-2.5">
                 <DetailRow label="Status">
-                  {editMode ? (
-                    <Select value={draft.status} onValueChange={(status) => setDraft((d) => ({ ...d, status }))}>
-                      <SelectTrigger size="sm" className="h-7">
-                        <SelectValue>{(status) => <StatusBadge status={status} />}</SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {EDITABLE_STATUSES.map((status) => (
-                          <SelectItem key={status} value={status}>
-                            <StatusBadge status={status} />
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <StatusBadge status={ticket.status} />
-                  )}
+                  <StatusBadge status={ticket.status} />
                 </DetailRow>
                 <DetailRow label="SLA">
-                  <span className="rounded-lg bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                    SLA {ticket.sla}
-                  </span>
+                  <SlaBadge ticket={ticket} />
                 </DetailRow>
                 <DetailRow label="Ticket ID">
                   <CopyTicketIdBadge id={ticket.id} />
@@ -331,66 +471,30 @@ export default function TicketingDetailPage() {
                   <Breadcrumb
                     items={[
                       ticket.kind ?? "Kendala",
-                      ticket.category.application,
+                      ticket.picCategory ?? ticket.category.application,
+                      ticket.domain,
                       ticket.category.scope,
                       ticket.category.concern,
-                    ]}
+                    ].filter(Boolean)}
                   />
                 </DetailRow>
+                <DetailRow label="Category">
+                  <span className="text-xs text-neutral-900">{ticket.picCategory ?? ticket.category.application}</span>
+                </DetailRow>
                 <DetailRow label="Domain">
-                  {editMode ? (
-                    <Select value={draft.domain} onValueChange={(domain) => setDraft((d) => ({ ...d, domain }))}>
-                      <SelectTrigger size="sm" className="h-7">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {DOMAIN_OPTIONS.map((option) => (
-                          <SelectItem key={option} value={option}>
-                            {option}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <span className="text-xs text-neutral-900">{ticket.domain || "—"}</span>
-                  )}
+                  <span className="text-xs text-neutral-900">{ticket.domain || "—"}</span>
                 </DetailRow>
-                <DetailRow label="Table Name">
-                  <span className="text-xs text-neutral-900">{ticket.tableName || "—"}</span>
-                </DetailRow>
-                <DetailRow label="IP Address">
-                  <span className="text-xs text-neutral-900">{ticket.ipAddress || "—"}</span>
+                <DetailRow label="Issues" align="start">
+                  <IssueRows issues={getTicketIssues(ticket)} />
                 </DetailRow>
                 <DetailRow label="Priority">
-                  {editMode ? (
-                    <Select value={draft.priority} onValueChange={(priority) => setDraft((d) => ({ ...d, priority }))}>
-                      <SelectTrigger size="sm" className="h-7">
-                        <SelectValue>{(priority) => <PriorityBadge priority={priority} />}</SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PRIORITY_OPTIONS.map((option) => (
-                          <SelectItem key={option} value={option}>
-                            <PriorityBadge priority={option} />
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <PriorityBadge priority={ticket.priority} />
-                  )}
+                  <PriorityBadge priority={ticket.priority} />
+                </DetailRow>
+                <DetailRow label="Level">
+                  <span className="text-xs font-medium text-neutral-900">{(ticket.level ?? "L0").toUpperCase()}</span>
                 </DetailRow>
                 <DetailRow label="PIC">
-                  {editMode ? (
-                    <MultiSelect
-                      value={draft.pic}
-                      onValueChange={(pic) => setDraft((d) => ({ ...d, pic }))}
-                      options={PIC_OPTIONS}
-                      placeholder="Select PIC(s)"
-                      className="max-w-sm"
-                    />
-                  ) : (
-                    <PicChipList pic={ticket.pic} />
-                  )}
+                  <PicChipList pic={ticket.pic} />
                 </DetailRow>
               </div>
             </div>
@@ -410,6 +514,35 @@ export default function TicketingDetailPage() {
               </span>
             </div>
           </div>
+
+          <div className="flex w-full flex-col gap-3 sm:flex-row">
+            <SummaryCard
+              label={`Response (${responseTargetMinutes}m target)`}
+              value={<p className={cn("text-sm font-semibold", SUMMARY_TEXT_CLASS[responseInfo.state])}>{responseInfo.label}</p>}
+            />
+            <SummaryCard
+              label={`Resolution (${resolutionTargetMinutes}m target)`}
+              value={<p className={cn("text-sm font-semibold", SUMMARY_TEXT_CLASS[resolutionInfo.state])}>{resolutionInfo.label}</p>}
+            />
+            <SummaryCard
+              label="Priority"
+              value={<PriorityBadge priority={ticket.priority} />}
+              caption={`Excludes ${formatSlaDuration(ticket.totalHoldMinutes ?? 0)} on hold`}
+            />
+          </div>
+
+          {ticket.status === STATUS.solved && (
+            <div className="flex w-full items-start gap-3 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              <CircleCheck className="mt-0.5 size-4 shrink-0" />
+              <div className="space-y-0.5">
+                <p className="font-semibold">Marked as Solved</p>
+                <p>
+                  This ticket is resolved. Reopen it if the issue returns, or Submit Close &amp; Archive to record
+                  the root cause and archive it.
+                </p>
+              </div>
+            </div>
+          )}
 
           {ticket.resolution && (
             <div className="w-full space-y-2 rounded-xl border border-neutral-200 p-4">
@@ -438,8 +571,8 @@ export default function TicketingDetailPage() {
                 <div className="flex-1 space-y-0.5">
                   <p className="font-semibold">Audit Trail Policy</p>
                   <p>
-                    Tickets cannot be arbitrarily deleted to maintain SLA compliance. If the issue has been
-                    resolved, click Submit Close &amp; Archive to ensure proper resolution reason.
+                    Tickets cannot be arbitrarily deleted, to maintain SLA compliance. Once the issue is resolved,
+                    use Solve to record the root cause, then Close &amp; Archive.
                   </p>
                 </div>
               </div>
@@ -454,107 +587,210 @@ export default function TicketingDetailPage() {
             </div>
           )}
 
-          <div className="flex w-full flex-col gap-4.5 bg-white">
-            <p className="text-base leading-6 font-medium text-foreground">
-              Discussion & Replies ({ticket.replies.length})
+          <IndyAssistantAlert>
+            <p>
+              {insight.duplicate.isDuplicate ? (
+                <>
+                  Kemungkinan <strong>duplikat</strong> dari tiket{" "}
+                  <strong>{insight.duplicate.relatedTicketId}</strong> ({insight.duplicate.similarity}% mirip).
+                </>
+              ) : (
+                <>
+                  Ini kemunculan ke-<strong>{insight.occurrenceCount}</strong> untuk tabel{" "}
+                  <strong>{ticket.tableName}</strong>
+                  {insight.lastOccurred && (
+                    <>
+                      , terakhir terjadi pada <strong>{insight.lastOccurred}</strong>
+                    </>
+                  )}
+                  . {insight.pattern}
+                </>
+              )}
             </p>
 
-            <div className="flex h-[312px] w-full flex-col items-start gap-4 overflow-y-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3">
-              {ticket.replies.map((reply) => (
-                <div
-                  key={reply.id}
-                  className="flex w-fit max-w-full shrink-0 items-start gap-3.5 rounded-[10px] border border-neutral-200 bg-white p-3"
-                >
-                  <Avatar size="sm" className="shrink-0">
-                    <AvatarFallback>{ticketAuthorInitials(reply.author)}</AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <div className="flex items-baseline gap-2 text-neutral-600">
-                      <span className="text-sm font-semibold text-foreground">{reply.author}</span>
-                      <span className="text-xs">{formatDateTime(reply.createdAt)}</span>
-                    </div>
-                    {reply.text && <p className="text-base leading-6 text-foreground">{reply.text}</p>}
-                    {reply.image && (
-                      <button
-                        type="button"
-                        onClick={() => setPreviewImage({ url: reply.image, name: "Attachment" })}
-                        className="mt-2 block shrink-0"
-                        aria-label="Preview attached image"
-                      >
-                        <img
-                          src={reply.image}
-                          alt="attachment"
-                          className="max-h-40 rounded-md border object-cover"
-                        />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {ticket.replies.length === 0 && (
-                <div className="flex shrink-0 items-center gap-2 p-5">
-                  <MessageSquareX className="size-5 shrink-0 text-neutral-500" />
-                  <p className="text-sm text-neutral-500">No replies yet. Be the first to respond.</p>
-                </div>
-              )}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold tracking-wide text-violet-800 uppercase">
+                  Root Cause Analysis{" "}
+                  <span className="font-normal normal-case text-violet-600">
+                    ({insight.rootCause.confidence}% confidence)
+                  </span>
+                </p>
+                <p>{insight.rootCause.primary}</p>
+                {insight.rootCause.contributingFactors.length > 0 && (
+                  <ul className="list-disc space-y-0.5 pl-4">
+                    {insight.rootCause.contributingFactors.map((factor) => (
+                      <li key={factor}>{factor}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-xs font-semibold tracking-wide text-violet-800 uppercase">
+                  Duplicate / Similar Incident Detection
+                </p>
+                <p>{insight.duplicate.note}</p>
+              </div>
             </div>
 
-            <div className="flex flex-col gap-3">
-              <div className="flex min-h-[76px] w-full flex-col gap-4 rounded-lg border border-input bg-transparent px-2.5 py-2 shadow-xs focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
-                {replyImage && (
-                  <div className="flex w-fit items-center gap-2 rounded-lg border bg-neutral-50 py-1 pr-2 pl-1">
-                    <button
-                      type="button"
-                      onClick={() => setPreviewImage({ url: replyImage.url, name: replyImage.name })}
-                      className="shrink-0"
-                      aria-label="Preview attached image"
-                    >
-                      <img src={replyImage.url} alt={replyImage.name} className="size-10 rounded object-cover" />
-                    </button>
-                    <span className="max-w-40 truncate text-xs text-neutral-600">{replyImage.name}</span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setReplyImage(null)
-                      }}
-                      aria-label="Remove attached image"
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </div>
-                )}
-                <Textarea
-                  placeholder="Type your message here."
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  onPaste={handleReplyPaste}
-                  className="min-h-0 flex-1 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
-                />
+            {insight.pastIncidents.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs font-semibold tracking-wide text-violet-800 uppercase">
+                  Past Occurrences
+                </p>
+                <ul className="space-y-1">
+                  {insight.pastIncidents.map((past) => (
+                    <li key={past.id} className="flex flex-wrap items-baseline gap-x-1.5">
+                      <span className="font-medium text-violet-800">{past.id}</span>
+                      <span className="text-violet-600">· {past.date} · resolved in {past.resolutionTime}</span>
+                      <span className="basis-full text-violet-950 sm:basis-auto">— {past.summary}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <div className="flex items-center justify-between">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImagePick}
-                />
-                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-                  <ImageUp className="size-4" />
-                  Attach image
-                </Button>
-                <Button size="sm" onClick={handleReplySubmit} disabled={!replyText.trim() && !replyImage}>
-                  Post Reply
-                </Button>
-              </div>
+            )}
+
+            <div className="space-y-1 border-t border-violet-200 pt-2">
+              <p className="text-xs font-semibold tracking-wide text-violet-800 uppercase">
+                Recommended Action
+              </p>
+              <p>{insight.recommendedAction}</p>
             </div>
+          </IndyAssistantAlert>
+
+          <div className="flex w-full flex-col gap-4.5 bg-white">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList variant="line">
+                <TabsTrigger value="discussion">
+                  <MessageSquare />
+                  Discussion & Replies ({ticket.replies.length})
+                </TabsTrigger>
+                <TabsTrigger value="history">
+                  <HistoryIcon />
+                  History ({historyEntries.length})
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="discussion" className="flex flex-col gap-4.5 pt-4.5">
+                <div className="flex h-[312px] w-full flex-col items-start gap-4 overflow-y-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+                  {ticket.replies.map((reply) => (
+                    <div
+                      key={reply.id}
+                      className="flex w-fit max-w-full shrink-0 items-start gap-3.5 rounded-[10px] border border-neutral-200 bg-white p-3"
+                    >
+                      <Avatar size="sm" className="shrink-0">
+                        <AvatarFallback>{ticketAuthorInitials(reply.author)}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <div className="flex items-baseline gap-2 text-neutral-600">
+                          <span className="text-sm font-semibold text-foreground">{reply.author}</span>
+                          <span className="text-xs">{formatDateTime(reply.createdAt)}</span>
+                        </div>
+                        {reply.text && <p className="text-base leading-6 text-foreground">{reply.text}</p>}
+                        {reply.image && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage({ url: reply.image, name: "Attachment" })}
+                            className="mt-2 block shrink-0"
+                            aria-label="Preview attached image"
+                          >
+                            <img
+                              src={reply.image}
+                              alt="attachment"
+                              className="max-h-40 rounded-md border object-cover"
+                            />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {ticket.replies.length === 0 && (
+                    <div className="flex shrink-0 items-center gap-2 p-5">
+                      <MessageSquareX className="size-5 shrink-0 text-neutral-500" />
+                      <p className="text-sm text-neutral-500">No replies yet. Be the first to respond.</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <div className="flex min-h-[76px] w-full flex-col gap-4 rounded-lg border border-input bg-transparent px-2.5 py-2 shadow-xs focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
+                    {replyImage && (
+                      <div className="flex w-fit items-center gap-2 rounded-lg border bg-neutral-50 py-1 pr-2 pl-1">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewImage({ url: replyImage.url, name: replyImage.name })}
+                          className="shrink-0"
+                          aria-label="Preview attached image"
+                        >
+                          <img src={replyImage.url} alt={replyImage.name} className="size-10 rounded object-cover" />
+                        </button>
+                        <span className="max-w-40 truncate text-xs text-neutral-600">{replyImage.name}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setReplyImage(null)
+                          }}
+                          aria-label="Remove attached image"
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </div>
+                    )}
+                    <Textarea
+                      placeholder="Type your message here."
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      onPaste={handleReplyPaste}
+                      className="min-h-0 flex-1 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImagePick}
+                    />
+                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                      <ImageUp className="size-4" />
+                      Attach image
+                    </Button>
+                    <Button size="sm" onClick={handleReplySubmit} disabled={!replyText.trim() && !replyImage}>
+                      Post Reply
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="history" className="pt-4.5">
+                <TicketHistoryTimeline entries={historyEntries} />
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </div>
 
       <CloseArchiveDialog open={closeOpen} onOpenChange={setCloseOpen} onSubmit={handleCloseArchive} />
+
+      <NewTicketDialog
+        open={duplicateOpen}
+        onOpenChange={setDuplicateOpen}
+        mode="duplicate"
+        sourceTicket={ticket}
+        onCreate={handleDuplicateCreate}
+      />
+
+      <UpdateTicketDialog
+        open={updateOpen}
+        onOpenChange={setUpdateOpen}
+        ticket={ticket}
+        categoryOptions={CATEGORY_OPTIONS}
+        onSubmit={handleUpdateSubmit}
+      />
 
       <Dialog open={!!previewImage} onOpenChange={(open) => !open && setPreviewImage(null)}>
         <DialogContent className="sm:max-w-lg">

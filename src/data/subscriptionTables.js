@@ -1,5 +1,7 @@
 // Mock data for the Subscription page — table catalogue + which ones start subscribed.
 
+import { XCircle, AlertTriangle, CheckCircle2, ShieldCheck } from "lucide-react"
+
 export const APPLICATIONS = ["ALL", "NDM", "IPDM", "ACS AXIOS"]
 export const CATEGORIES = ["ALL", "RAN", "FMC", "CORE PS", "TRANSPORT RAN"]
 
@@ -57,18 +59,73 @@ export const DQ_DIMENSIONS = [
   "Timeliness",
 ]
 
-const GOOD_INSIGHT =
-  "This data is reliable and suitable for daily operational decisions."
-const BAD_INSIGHT =
-  "Relying on this data without thorough verification could lead to critical errors in daily operational decisions."
+// Data quality score bands — thresholds and presentation for each condition.
+export const SCORE_TIERS = [
+  {
+    key: "poor",
+    label: "Poor",
+    min: 0,
+    max: 79,
+    dot: "bg-red-500",
+    text: "text-red-700",
+    bg: "bg-red-50",
+    icon: XCircle,
+    insight:
+      "Relying on this data without thorough verification could lead to critical errors in daily operational decisions.",
+  },
+  {
+    key: "average",
+    label: "Average",
+    min: 80,
+    max: 89,
+    dot: "bg-amber-500",
+    text: "text-amber-700",
+    bg: "bg-amber-50",
+    icon: AlertTriangle,
+    insight:
+      "This data has some quality gaps — review it before relying on it for critical decisions.",
+  },
+  {
+    key: "good",
+    label: "Good",
+    min: 90,
+    max: 95,
+    dot: "bg-emerald-500",
+    text: "text-emerald-700",
+    bg: "bg-emerald-50",
+    icon: CheckCircle2,
+    insight: "This data is reliable and suitable for daily operational decisions.",
+  },
+  {
+    key: "excellent",
+    label: "Excellent",
+    min: 96,
+    max: 100,
+    dot: "bg-blue-500",
+    text: "text-blue-700",
+    bg: "bg-blue-50",
+    icon: ShieldCheck,
+    insight: "This data is highly reliable and ready for critical, real-time decisions.",
+  },
+]
 
-// Deterministic mock DQ score per table/dimension — stands in for a real metrics API.
+// Deterministic mock DQ score per table/dimension — stands in for a real
+// metrics API. Cycles through all four score tiers across tables/dimensions
+// so every condition (poor/average/good/excellent) is represented.
 export function getTableDimensionMetric(table, dimensionIndex) {
-  const score = ((table.id * (dimensionIndex + 3) * 17) % 97) + 3
-  const isGood = score >= 50
+  const tier = SCORE_TIERS[(table.id + dimensionIndex) % SCORE_TIERS.length]
+  const span = tier.max - tier.min
+  const seed = table.id * 17 + dimensionIndex * 31
+  const score = tier.min + (seed % (span + 1))
+
   return {
     score,
-    isGood,
-    insight: isGood ? GOOD_INSIGHT : BAD_INSIGHT,
+    tier: tier.key,
+    label: tier.label,
+    dot: tier.dot,
+    text: tier.text,
+    bg: tier.bg,
+    icon: tier.icon,
+    insight: tier.insight,
   }
 }

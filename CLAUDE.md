@@ -1,57 +1,40 @@
 # NDQ with shadcn
 
-## Tech stack
+## Tech Stack
 - React + Vite
 - Tailwind CSS v4
 - shadcn/ui (Base UI, Nova preset)
 - Import alias: `@/*` → `./src/*`
 
-## Figma ↔ Code sync workflow
+## Figma ↔ Code Sync Workflow
 
-This project's Figma file is treated as the design source of truth once a
-frame there has been manually finalized/edited. When asked to update code
-to match a specific Figma frame/node:
+This project's Figma file is the source of truth once a frame is finalized/edited there.
 
-- **Naming/token mismatches:** if a component or token name in the Figma
-  design differs from what's used in the current code, don't skip or guess
-  blindly. Treat the Figma design's actual values (colors, spacing, layout)
-  as correct, and adapt/rename in the code where reasonable — staying
-  consistent with the codebase's existing naming conventions.
-- **Reuse before inventing:** if an existing semantic token (e.g.
-  `border-muted`, `bg-secondary`, `text-neutral-600`) matches the Figma
-  value exactly, reuse it. Only fall back to a plain Tailwind utility class
-  (e.g. `bg-neutral-50`) when no existing project token matches — don't
-  invent new token names ad hoc.
-- **Scope MCP calls carefully:** when reading Figma context, target the
-  specific frame/node directly (e.g. via its node-id) rather than pulling
-  metadata for the entire file — the file can be large enough to exceed
-  tool output limits.
-- Direction of sync can go either way depending on the task: code → Figma
-  (pushing a finished UI state into Figma for documentation/handoff) or
-  Figma → code (updating React components to match a design that was
-  edited directly in Figma). Always confirm which direction is intended
-  before starting a sync task, since the two require different tools
-  (`figma-generate-design` / `use_figma` for code → Figma, vs. Figma's Dev
-  Mode MCP `extract_design_context` for Figma → code).
-- **Use real shadcn/ui components, not literal recreations of Figma
-  layers.** A Figma reference is primarily there to guide layout structure,
-  field order/grouping, and which details/states should exist — it is not
-  a literal component spec. When a Figma element maps to an existing
-  shadcn/ui component or pattern (Select, Dialog, Tabs, Avatar, Badge,
-  Combobox, multi-select, etc.), implement it using the real shadcn
-  component and its actual props/variants — even if the Figma layer or
-  variable name doesn't match shadcn's naming. Don't rebuild a
-  custom-styled clone just because the Figma layer looks visually similar
-  but is named differently.
-- shadcn doesn't ship every pattern as a single ready-made component — e.g.
-  Combobox and multi-select are typically composed from existing
-  primitives (`Command` + `Popover`, plus `Badge` for selected-value
-  chips), not separate standalone components. When a needed pattern isn't
-  a single existing component, compose it from existing shadcn primitives
-  first. Only write a fully custom element from scratch if no reasonable
-  composition of existing shadcn primitives covers the pattern.
+- **Confirm sync direction first.** It can go two ways:
+  - **Code → Figma** (push finished UI into Figma for docs/handoff) — use `figma-generate-design` / `use_figma`
+  - **Figma → Code** (update React to match a design edited in Figma) — use Figma's Dev Mode MCP `extract_design_context`
+- **Scope MCP calls carefully.** Target the specific frame/node (node-id) directly, not the whole file — the file can be too large for tool output limits.
+- **Naming/token mismatches:** if a component or token name in Figma differs from code, don't skip or guess. Treat Figma's actual values (colors, spacing, layout) as correct, and adapt/rename in code — staying consistent with existing naming conventions.
+- **Figma guides structure, not literal specs.** It shows layout, field order/grouping, and which states should exist — it is not a literal component spec.
 
-## Out of scope (project-wide, for now)
-- Hitakari design tokens / custom colors — use shadcn defaults until token
-  integration is scheduled as its own phase
+## Component Rules
+- **Reuse before installing new.** Always check `src/components/ui/` first before running an install command.
+- **Use real shadcn/ui components**, not custom recreations of Figma layers. When a Figma element maps to an existing shadcn/ui component or pattern (Select, Dialog, Tabs, Avatar, Badge, Combobox, multi-select, etc.), implement it with the real component and its actual props/variants — even if the Figma layer name doesn't match.
+- **Compose before building custom.** shadcn doesn't ship every pattern as one ready component (e.g. Combobox, multi-select are composed from `Command` + `Popover` + `Badge`). Compose from existing primitives first. Only write a fully custom element if no reasonable composition covers it.
+- Components are installed via the standard shadcn CLI (`npx shadcn add <component>`) — this generates the `.jsx` file automatically. No extra documentation step is needed for this part right now.
+
+## Colors
+- Use shadcn semantic tokens first (e.g. `border-muted`, `bg-secondary`, `text-neutral-600`). Only fall back to a plain Tailwind default utility (e.g. `bg-neutral-50`) when no existing token matches.
+- Don't hardcode hex values in components.
+- Don't invent new token names ad hoc.
+
+## Icons
+- **Lucide icons** — primary icon set, used by default across the project.
+- **Google Material Symbols (Rounded style — Filled and Outline variants)** — secondary icon set, kept available for cases Lucide doesn't cover well.
+  - Setup: loaded via CDN link in `index.html` (Material Symbols Rounded, variable font).
+  - Usage: `<span className="material-symbols-rounded">icon_name</span>` — add `style={{ fontVariationSettings: "'FILL' 1" }}` for filled variant.
+- Don't mix in any other icon set beyond these two (e.g. Tabler, Heroicons).
+
+## Out of Scope (for now)
 - Backend / API integration — all pages use mock data only, no live backend
+- Component registry/documentation file — not needed at this stage

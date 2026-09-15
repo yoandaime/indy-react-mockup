@@ -1,12 +1,18 @@
 import { useNavigate } from "react-router-dom"
-import { Database, FilePlus2, Rss, Ticket } from "lucide-react"
+import { Database, Eye, FilePlus2, Rss, Ticket } from "lucide-react"
 
 const MENUS = [
   {
     title: "Enrich Data Admin",
     description: "Manage registered data source connections and their control tables.",
     icon: Database,
-    path: "/admin",
+    path: "/enrich-data/admin",
+  },
+  {
+    title: "Data Observability",
+    description: "Try a data quality rule against a table without registering it.",
+    icon: Eye,
+    path: "/data-observability",
   },
   {
     title: "Enrich Data - Register New Data",
@@ -21,7 +27,7 @@ const MENUS = [
     path: "/subscription",
   },
   {
-    title: "Ticketing",
+    title: "Insiden Management",
     description: "Track and manage support tickets and issue requests.",
     icon: Ticket,
     path: "/ticketing",

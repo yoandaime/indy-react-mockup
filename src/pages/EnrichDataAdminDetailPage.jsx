@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { ChevronLeft, Pencil } from "lucide-react"
 import { ADMIN_DETAIL } from "@/data/adminConnections"
+import { useViewMode } from "@/context/ViewModeContext"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -22,7 +23,7 @@ function BackButton() {
       size="sm"
       nativeButton={false}
       render={
-        <Link to="/admin">
+        <Link to="/enrich-data/admin">
           <ChevronLeft className="size-3" />
           Back
         </Link>
@@ -31,13 +32,15 @@ function BackButton() {
   )
 }
 
-export default function AdminDetailPage() {
+export default function EnrichDataAdminDetailPage() {
   const { id } = useParams()
   const detail = ADMIN_DETAIL[Number(id)]
+  const { viewMode } = useViewMode()
+  const readOnly = viewMode === "user"
 
   if (!detail) {
     return (
-      <div className="space-y-4 bg-neutral-50 pt-5 px-[140px] pb-10">
+      <div className="h-full min-w-0 flex-1 space-y-4 overflow-y-auto bg-white pt-5 px-[140px] pb-10">
         <BackButton />
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
           No connection found for ID "{id}".
@@ -47,7 +50,7 @@ export default function AdminDetailPage() {
   }
 
   return (
-    <div className="space-y-6 bg-neutral-50 pt-5 px-[140px] pb-10">
+    <div className="h-full min-w-0 flex-1 space-y-6 overflow-y-auto bg-white pt-5 px-[140px] pb-10">
       <div className="flex items-center gap-3">
         <BackButton />
         <p className="text-base font-medium text-foreground">
@@ -55,16 +58,16 @@ export default function AdminDetailPage() {
         </p>
       </div>
 
-      <ConnectionSection connection={detail.connection} />
-      <ConnectionColumnSection initialColumns={detail.columns} />
+      <ConnectionSection connection={detail.connection} readOnly={readOnly} />
+      <ConnectionColumnSection initialColumns={detail.columns} readOnly={readOnly} />
       <DimensionRulesSection rules={detail.dimension_rules} />
 
       <div className="flex w-full items-start gap-6">
-        <div className="w-[476px] shrink-0 space-y-3 rounded-xl border bg-white p-6">
-          <ActiveTableSection initialActiveTable={detail.active_table} />
+        <div className="w-[476px] shrink-0 space-y-3 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+          <ActiveTableSection initialActiveTable={detail.active_table} readOnly={readOnly} />
         </div>
-        <div className="min-w-0 flex-1 space-y-3 rounded-xl border bg-white p-6">
-          <ScheduleSection initialSchedule={detail.schedule} />
+        <div className="min-w-0 flex-1 space-y-3 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+          <ScheduleSection initialSchedule={detail.schedule} readOnly={readOnly} />
         </div>
       </div>
     </div>
@@ -75,7 +78,7 @@ function ConnectionField({ label, value, isEditing, onChange }) {
   return (
     <div className="flex w-full items-center gap-6 border-b border-muted pb-1.5">
       <div className="flex w-[100px] shrink-0 items-center">
-        <span className="text-xs text-neutral-600">{label}</span>
+        <span className="text-sm text-muted-foreground">{label}</span>
       </div>
       {isEditing ? (
         <Input className="h-7 flex-1" value={value} onChange={onChange} />
@@ -86,7 +89,7 @@ function ConnectionField({ label, value, isEditing, onChange }) {
   )
 }
 
-function ConnectionSection({ connection }) {
+function ConnectionSection({ connection, readOnly }) {
   const [data, setData] = useState(connection)
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState(connection)
@@ -107,30 +110,31 @@ function ConnectionSection({ connection }) {
   const set = (key) => (e) => setDraft((d) => ({ ...d, [key]: e.target.value }))
 
   return (
-    <div className="w-full space-y-3 rounded-lg border bg-white p-6">
+    <div className="w-full space-y-3 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
       <div className="flex items-start justify-between">
         <h2 className="text-base font-semibold text-foreground">Connections</h2>
-        {isEditing ? (
-          <div className="flex gap-1">
-            <Button size="sm" onClick={saveEdit}>
-              Save
+        {!readOnly &&
+          (isEditing ? (
+            <div className="flex gap-1">
+              <Button size="sm" onClick={saveEdit}>
+                Save
+              </Button>
+              <Button size="sm" variant="outline" onClick={cancelEdit}>
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <Button size="sm" variant="outline" onClick={startEdit}>
+              <Pencil className="size-3.5" />
+              Edit
             </Button>
-            <Button size="sm" variant="outline" onClick={cancelEdit}>
-              Cancel
-            </Button>
-          </div>
-        ) : (
-          <Button size="sm" variant="outline" onClick={startEdit}>
-            <Pencil className="size-3.5" />
-            Edit
-          </Button>
-        )}
+          ))}
       </div>
       <div className="flex w-full items-start gap-6">
         <div className="flex flex-1 flex-col gap-1.5">
           <div className="flex w-full items-center gap-6 border-b border-muted pb-1.5">
             <div className="flex w-[100px] shrink-0 items-center">
-              <span className="text-xs text-neutral-600">Connection ID</span>
+              <span className="text-sm text-muted-foreground">Connection ID</span>
             </div>
             <span className="text-sm text-foreground">{data.connection_id}</span>
           </div>
@@ -139,7 +143,7 @@ function ConnectionSection({ connection }) {
           <ConnectionField label="Reference" value={row.reference} isEditing={isEditing} onChange={set("reference")} />
           <div className="flex w-full items-center gap-6 border-b border-muted pb-1.5">
             <div className="flex w-[100px] shrink-0 items-center">
-              <span className="text-xs text-neutral-600">Features</span>
+              <span className="text-sm text-muted-foreground">Features</span>
             </div>
             <div className="flex flex-1 flex-wrap gap-1">
               {data.features.map((f) => (
@@ -162,7 +166,7 @@ function ConnectionSection({ connection }) {
   )
 }
 
-function ConnectionColumnSection({ initialColumns }) {
+function ConnectionColumnSection({ initialColumns, readOnly }) {
   const [columns, setColumns] = useState(initialColumns)
   const [editingIndex, setEditingIndex] = useState(null)
   const [draft, setDraft] = useState(null)
@@ -184,7 +188,7 @@ function ConnectionColumnSection({ initialColumns }) {
   }
 
   return (
-    <div className="w-full space-y-3 rounded-xl border bg-white p-6">
+    <div className="w-full space-y-3 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
       <h2 className="text-base font-semibold text-foreground">Connection Column</h2>
       <div className="overflow-hidden rounded-lg border">
         <Table>
@@ -197,12 +201,12 @@ function ConnectionColumnSection({ initialColumns }) {
               <TableHead>Expression ID</TableHead>
               <TableHead>Is Unique</TableHead>
               <TableHead>Is Validity</TableHead>
-              <TableHead>Action</TableHead>
+              {!readOnly && <TableHead>Action</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {columns.map((c, i) => {
-              const isEditing = editingIndex === i
+              const isEditing = !readOnly && editingIndex === i
               const row = isEditing ? draft : c
               return (
                 <TableRow key={c.no}>
@@ -230,41 +234,41 @@ function ConnectionColumnSection({ initialColumns }) {
                     />
                   </TableCell>
                   <TableCell>
-                    <input
-                      type="checkbox"
+                    <Switch
                       checked={row.is_uniq}
                       disabled={!isEditing}
-                      onChange={(e) =>
-                        setDraft((d) => ({ ...d, is_uniq: e.target.checked }))
+                      onCheckedChange={(v) =>
+                        setDraft((d) => ({ ...d, is_uniq: v }))
                       }
                     />
                   </TableCell>
                   <TableCell>
-                    <input
-                      type="checkbox"
+                    <Switch
                       checked={row.is_validity}
                       disabled={!isEditing}
-                      onChange={(e) =>
-                        setDraft((d) => ({ ...d, is_validity: e.target.checked }))
+                      onCheckedChange={(v) =>
+                        setDraft((d) => ({ ...d, is_validity: v }))
                       }
                     />
                   </TableCell>
-                  <TableCell>
-                    {isEditing ? (
-                      <div className="flex gap-1">
-                        <Button size="sm" onClick={() => saveEdit(i)}>
-                          Save
+                  {!readOnly && (
+                    <TableCell>
+                      {isEditing ? (
+                        <div className="flex gap-1">
+                          <Button size="sm" onClick={() => saveEdit(i)}>
+                            Save
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={cancelEdit}>
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={() => startEdit(i)}>
+                          Edit
                         </Button>
-                        <Button size="sm" variant="outline" onClick={cancelEdit}>
-                          Cancel
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button size="sm" variant="outline" onClick={() => startEdit(i)}>
-                        Edit
-                      </Button>
-                    )}
-                  </TableCell>
+                      )}
+                    </TableCell>
+                  )}
                 </TableRow>
               )
             })}
@@ -277,7 +281,7 @@ function ConnectionColumnSection({ initialColumns }) {
 
 function DimensionRulesSection({ rules }) {
   return (
-    <div className="w-full space-y-3 rounded-xl border bg-white p-6">
+    <div className="w-full space-y-3 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
       <h2 className="text-base font-semibold text-foreground">Dimension Rules</h2>
       <div className="overflow-hidden rounded-lg border">
         <Table>
@@ -303,7 +307,7 @@ function DimensionRulesSection({ rules }) {
   )
 }
 
-function ActiveTableSection({ initialActiveTable }) {
+function ActiveTableSection({ initialActiveTable, readOnly }) {
   const [activeTable, setActiveTable] = useState(initialActiveTable)
   const [isEditing, setIsEditing] = useState(false)
   const [draftEnabled, setDraftEnabled] = useState(initialActiveTable.enabled)
@@ -329,7 +333,7 @@ function ActiveTableSection({ initialActiveTable }) {
             <TableRow className="bg-neutral-50 hover:bg-neutral-50">
               <TableHead>Connection ID</TableHead>
               <TableHead className="text-center">Enabled</TableHead>
-              <TableHead>Action</TableHead>
+              {!readOnly && <TableHead>Action</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -342,22 +346,24 @@ function ActiveTableSection({ initialActiveTable }) {
                   <Switch checked={activeTable.enabled} disabled />
                 )}
               </TableCell>
-              <TableCell>
-                {isEditing ? (
-                  <div className="flex gap-1">
-                    <Button size="sm" onClick={saveEdit}>
-                      Save
+              {!readOnly && (
+                <TableCell>
+                  {isEditing ? (
+                    <div className="flex gap-1">
+                      <Button size="sm" onClick={saveEdit}>
+                        Save
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={cancelEdit}>
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={startEdit}>
+                      Edit
                     </Button>
-                    <Button size="sm" variant="outline" onClick={cancelEdit}>
-                      Cancel
-                    </Button>
-                  </div>
-                ) : (
-                  <Button size="sm" variant="outline" onClick={startEdit}>
-                    Edit
-                  </Button>
-                )}
-              </TableCell>
+                  )}
+                </TableCell>
+              )}
             </TableRow>
           </TableBody>
         </Table>
@@ -366,7 +372,7 @@ function ActiveTableSection({ initialActiveTable }) {
   )
 }
 
-function ScheduleSection({ initialSchedule }) {
+function ScheduleSection({ initialSchedule, readOnly }) {
   const [schedule, setSchedule] = useState(initialSchedule)
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState(initialSchedule)
@@ -394,7 +400,7 @@ function ScheduleSection({ initialSchedule }) {
               <TableHead>Connection ID</TableHead>
               <TableHead>Cron Schedule</TableHead>
               <TableHead className="text-center">Enabled</TableHead>
-              <TableHead>Action</TableHead>
+              {!readOnly && <TableHead>Action</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -436,22 +442,24 @@ function ScheduleSection({ initialSchedule }) {
                   <Switch checked={schedule.enabled} disabled />
                 )}
               </TableCell>
-              <TableCell>
-                {isEditing ? (
-                  <div className="flex gap-1">
-                    <Button size="sm" onClick={saveEdit}>
-                      Save
+              {!readOnly && (
+                <TableCell>
+                  {isEditing ? (
+                    <div className="flex gap-1">
+                      <Button size="sm" onClick={saveEdit}>
+                        Save
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={cancelEdit}>
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={startEdit}>
+                      Edit
                     </Button>
-                    <Button size="sm" variant="outline" onClick={cancelEdit}>
-                      Cancel
-                    </Button>
-                  </div>
-                ) : (
-                  <Button size="sm" variant="outline" onClick={startEdit}>
-                    Edit
-                  </Button>
-                )}
-              </TableCell>
+                  )}
+                </TableCell>
+              )}
             </TableRow>
           </TableBody>
         </Table>

@@ -1,0 +1,1018 @@
+import { useState } from "react"
+import { toast } from "sonner"
+import { Wand2, ListChecks, Play, Activity, SlidersHorizontal, Blocks } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import RulesManagementList from "@/components/dataObservability/RulesManagementList"
+import ProfilingFields from "@/components/dataObservability/ProfilingFields"
+import ProfilingResults from "@/components/dataObservability/ProfilingResults"
+import ComposerFields from "@/components/dataObservability/ComposerFields"
+import ComposerResults from "@/components/dataObservability/ComposerResults"
+import SaveRuleDialog from "@/components/dataObservability/SaveRuleDialog"
+import FieldSelect from "@/components/dataObservability/FieldSelect"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import { MultiSelect } from "@/components/ui/multi-select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { notifySuccess } from "@/lib/toast"
+import { cn } from "@/lib/utils"
+import { DQ_SCHEMAS, DQ_TABLES, findMockTable, fullTableName } from "@/data/dqComposerMockData"
+import { getDimensionKeys } from "@/lib/dqComposer/ruleCatalog"
+import {
+  DIMENSIONS,
+  ruleTypesForDimension,
+  GRANULARITIES,
+  MISSING_PERIOD_GRANULARITIES,
+  CONSISTENCY_KEY_MODES,
+  CONSISTENCY_VALUE_AGGREGATIONS,
+  DEFAULT_PARTITION_COLUMN,
+  DEFAULT_LOOKBACK_DAYS,
+  DEFAULT_LIMIT,
+  DEFAULT_GRANULARITY,
+  MAX_NOT_NULL_COLUMNS,
+  MAX_MISSING_KEY_COLUMNS,
+} from "@/lib/dqComposer/constants"
+import { buildRuleQuery } from "@/lib/dqComposer/buildQuery"
+import { runRuleAnalysis } from "@/lib/dqComposer/runAnalysis"
+import { profileTable } from "@/lib/dqComposer/profileTable"
+import { buildComposerQuery, genericizeQuery, runComposerRule } from "@/lib/dqComposer/runComposer"
+
+// Rule types needing a second "control table" to compare against.
+const CONTROL_TABLE_RULE_TYPES = ["consistency_key", "consistency_value", "uniqueness_key"]
+
+const INITIAL_RULE_STATE = {
+  columnNames: [],
+  reference: "",
+  referencesByColumn: {},
+  insertTimeColumn: "",
+  keyColumn: "",
+  controlTable: "",
+  controlKeyColumn: "",
+  mode: "summary",
+  metricColumn: "",
+  aggFunc: "sum",
+  controlMetricColumn: "",
+  controlColumnNames: [],
+  minsByColumn: {},
+  maxsByColumn: {},
+  patternsByColumn: {},
+  allowedValuesByColumn: {},
+}
+
+const INITIAL_TABLE_B = { tableName: "", describedTable: null, partitionColumn: DEFAULT_PARTITION_COLUMN, joinColumns: [] }
+
+function makeInitialComposerState(rule) {
+  return {
+    key: rule?.key || null,
+    dimension: rule?.dimension || getDimensionKeys()[0],
+    ruleName: rule?.title || "",
+    description: rule?.description || "",
+    columnMode: rule?.mode || "single",
+    columnName: rule?.columnName || "",
+    joinColumnsA: [],
+    numerator: rule?.num || "",
+    denominator: rule?.denom || "",
+    tableB: { ...INITIAL_TABLE_B },
+    lookbackDays: String(DEFAULT_LOOKBACK_DAYS),
+    limit: String(DEFAULT_LIMIT),
+    sqlQuery: "",
+    previewRows: null,
+  }
+}
+
+function slugify(text) {
+  return (
+    text
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "") || "custom_rule"
+  )
+}
+
+function formatToday() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+
+function StatusPill({ status }) {
+  if (status === null || status === undefined) return <span className="text-muted-foreground">—</span>
+  const pass = status === "PASS"
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "border-transparent font-semibold",
+        pass ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+      )}
+    >
+      {status}
+    </Badge>
+  )
+}
+
+function ResultTable({ rows }) {
+  if (!rows.length) {
+    return <p className="text-sm text-muted-foreground">Query ran successfully — no rows matched.</p>
+  }
+  const columns = Object.keys(rows[0])
+  return (
+    <div className="max-h-[420px] overflow-auto rounded-lg border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {columns.map((col) => (
+              <TableHead key={col}>{col}</TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row, i) => (
+            <TableRow key={i}>
+              {columns.map((col) => (
+                <TableCell key={col}>
+                  {col === "status" ? (
+                    <StatusPill status={row[col]} />
+                  ) : row[col] === null || row[col] === undefined ? (
+                    <span className="text-muted-foreground">—</span>
+                  ) : (
+                    String(row[col])
+                  )}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
+// Multi-selects are soft-capped at 5 for UI sanity, matching the backend's
+// not_null / missing_key column caps for the rule types that have one.
+function clampSelection(values, max) {
+  return values.length > max ? values.slice(0, max) : values
+}
+
+export default function DataObservabilityPage() {
+  const [topTab, setTopTab] = useState("dq-composer")
+  const [subTab, setSubTab] = useState("profiling")
+  const [customRules, setCustomRules] = useState([])
+
+  // Schema/Table/Describe/Period — shared across all three DQ Composer
+  // sub-tabs (Profiling, Rules, Composer).
+  const [schema] = useState(DQ_SCHEMAS[0])
+  const [tableName, setTableName] = useState("")
+  const [describedTable, setDescribedTable] = useState(null)
+  const [partitionColumn, setPartitionColumn] = useState(DEFAULT_PARTITION_COLUMN)
+
+  // Rules sub-tab state.
+  const [dimension, setDimension] = useState("")
+  const [ruleType, setRuleType] = useState("")
+  const [granularity, setGranularity] = useState(DEFAULT_GRANULARITY)
+  const [lookbackDays, setLookbackDays] = useState(String(DEFAULT_LOOKBACK_DAYS))
+  const [limit, setLimit] = useState(String(DEFAULT_LIMIT))
+  const [ruleState, setRuleState] = useState(INITIAL_RULE_STATE)
+  const [sqlQuery, setSqlQuery] = useState("")
+  const [analysisRows, setAnalysisRows] = useState(null)
+
+  // Profiling sub-tab state.
+  const [insertTimeColumn, setInsertTimeColumn] = useState("")
+  const [uniqKeyColumns, setUniqKeyColumns] = useState([])
+  const [profileLookbackDays, setProfileLookbackDays] = useState(String(DEFAULT_LOOKBACK_DAYS))
+  const [profile, setProfile] = useState(null)
+
+  // Composer sub-tab state (Rules Catalog's Add New Rule / Edit Formula).
+  const [composer, setComposer] = useState(() => makeInitialComposerState(null))
+  const [saveOpen, setSaveOpen] = useState(false)
+  const [saveForm, setSaveForm] = useState(null)
+
+  const tableOptions = (DQ_TABLES[schema] || []).map((t) => t.table)
+  const periodColumns = describedTable ? describedTable.columns.filter((c) => c.is_period).map((c) => c.column) : []
+  const dataColumns = describedTable ? describedTable.columns.filter((c) => !c.is_period).map((c) => c.column) : []
+  const allColumnNames = describedTable ? describedTable.columns.map((c) => c.column) : []
+
+  const availableRuleTypes = ruleTypesForDimension(dimension)
+  const availableGranularities = ruleType === "missing_period" ? MISSING_PERIOD_GRANULARITIES : GRANULARITIES
+  const needsControlTable = CONTROL_TABLE_RULE_TYPES.includes(ruleType)
+  const controlTableOptions = tableOptions.filter((t) => t !== tableName)
+  const controlTableDef = ruleState.controlTable ? findMockTable(schema, ruleState.controlTable) : null
+  const controlColumnNames = controlTableDef ? controlTableDef.columns.map((c) => c.column) : []
+
+  function patchRuleState(patch) {
+    setRuleState((prev) => ({ ...prev, ...patch }))
+  }
+
+  function patchComposer(patch) {
+    setComposer((prev) => ({ ...prev, ...patch }))
+  }
+
+  function patchTableB(patch) {
+    setComposer((prev) => ({ ...prev, tableB: { ...prev.tableB, ...patch } }))
+  }
+
+  function patchSaveForm(patch) {
+    setSaveForm((prev) => ({ ...prev, ...patch }))
+  }
+
+  function handleTableChange(next) {
+    setTableName(next)
+    setDescribedTable(null)
+    setPartitionColumn(DEFAULT_PARTITION_COLUMN)
+    // Reset every sub-tab's derived state — it all keys off the described table's columns.
+    setDimension("")
+    setRuleType("")
+    setSqlQuery("")
+    setAnalysisRows(null)
+    setRuleState(INITIAL_RULE_STATE)
+    setInsertTimeColumn("")
+    setUniqKeyColumns([])
+    setProfile(null)
+    setComposer(makeInitialComposerState(null))
+  }
+
+  function handleDescribe() {
+    const found = findMockTable(schema, tableName)
+    if (!found) {
+      toast.error("Select a table first")
+      return
+    }
+    setDescribedTable(found)
+    setGranularity(found.granularity)
+    const defaultPeriod =
+      found.columns.find((c) => c.column === DEFAULT_PARTITION_COLUMN)?.column ||
+      found.columns.find((c) => c.is_period)?.column ||
+      ""
+    setPartitionColumn(defaultPeriod)
+    setSqlQuery("")
+    setAnalysisRows(null)
+    setProfile(null)
+    patchComposer({ sqlQuery: "", previewRows: null })
+    notifySuccess(
+      "Table described successfully",
+      `${found.columns.length} columns found in ${fullTableName(schema, tableName)}`
+    )
+  }
+
+  function handleDimensionChange(next) {
+    setDimension(next)
+    const types = ruleTypesForDimension(next)
+    const nextRuleType = types[0] || ""
+    setRuleType(nextRuleType)
+    setSqlQuery("")
+    setAnalysisRows(null)
+    setRuleState(INITIAL_RULE_STATE)
+    if (nextRuleType === "missing_period" && !MISSING_PERIOD_GRANULARITIES.includes(granularity)) {
+      setGranularity(MISSING_PERIOD_GRANULARITIES[0])
+    }
+  }
+
+  function handleRuleTypeChange(next) {
+    setRuleType(next)
+    setSqlQuery("")
+    setAnalysisRows(null)
+    setRuleState(INITIAL_RULE_STATE)
+    if (next === "missing_period" && !MISSING_PERIOD_GRANULARITIES.includes(granularity)) {
+      setGranularity(MISSING_PERIOD_GRANULARITIES[0])
+    }
+  }
+
+  function buildConfig() {
+    const base = {
+      table: fullTableName(schema, tableName),
+      ruleType,
+      partitionColumn,
+      granularity,
+      lookbackDays: Number(lookbackDays),
+      limit: Number(limit),
+    }
+    switch (ruleType) {
+      case "not_null":
+        return { ...base, columnNames: ruleState.columnNames }
+      case "count_row":
+        return { ...base, reference: ruleState.reference }
+      case "missing_key":
+        return {
+          ...base,
+          columnNames: ruleState.columnNames,
+          references: ruleState.columnNames.map((c) => ruleState.referencesByColumn[c] || ""),
+        }
+      case "missing_period":
+        return base
+      case "timeliness":
+        return { ...base, insertTimeColumn: ruleState.insertTimeColumn }
+      case "validity_column":
+        return { ...base, columnNames: ruleState.columnNames }
+      case "range_check":
+        return {
+          ...base,
+          columnNames: ruleState.columnNames,
+          mins: ruleState.columnNames.map((c) => ruleState.minsByColumn[c] || ""),
+          maxs: ruleState.columnNames.map((c) => ruleState.maxsByColumn[c] || ""),
+        }
+      case "pattern_check":
+        return {
+          ...base,
+          columnNames: ruleState.columnNames,
+          patterns: ruleState.columnNames.map((c) => ruleState.patternsByColumn[c] || ""),
+        }
+      case "allowed_values":
+        return {
+          ...base,
+          columnNames: ruleState.columnNames,
+          allowedValuesLists: ruleState.columnNames.map((c) =>
+            (ruleState.allowedValuesByColumn[c] || "")
+              .split(",")
+              .map((v) => v.trim())
+              .filter(Boolean)
+          ),
+        }
+      case "consistency_key":
+        return {
+          ...base,
+          keyColumn: ruleState.keyColumn,
+          controlTable: ruleState.controlTable ? fullTableName(schema, ruleState.controlTable) : "",
+          controlPartitionColumn: partitionColumn,
+          controlKeyColumn: ruleState.controlKeyColumn,
+          mode: ruleState.mode,
+        }
+      case "consistency_value":
+        return {
+          ...base,
+          metricColumn: ruleState.metricColumn,
+          aggFunc: ruleState.aggFunc,
+          controlTable: ruleState.controlTable ? fullTableName(schema, ruleState.controlTable) : "",
+          controlPartitionColumn: partitionColumn,
+          controlMetricColumn: ruleState.controlMetricColumn,
+        }
+      case "uniqueness_key":
+        return {
+          ...base,
+          columnNames: ruleState.columnNames,
+          controlTable: ruleState.controlTable ? fullTableName(schema, ruleState.controlTable) : "",
+          controlColumnNames: ruleState.controlColumnNames,
+          controlPartitionColumn: partitionColumn,
+        }
+      default:
+        return base
+    }
+  }
+
+  function handleGenerateSql() {
+    if (!ruleType) {
+      toast.error("Pick a dimension and rule type first")
+      return
+    }
+    try {
+      const query = buildRuleQuery(buildConfig())
+      setSqlQuery(query)
+      setAnalysisRows(null)
+      notifySuccess("SQL editor updated", `Generated ${ruleType} query`)
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
+
+  function handleRunAnalysis() {
+    try {
+      const config = buildConfig()
+      const runConfig = { ...config, rows: describedTable.rows }
+      if (needsControlTable) {
+        if (!controlTableDef) throw new Error("Select a control table first")
+        runConfig.controlRows = controlTableDef.rows
+      }
+      setAnalysisRows(runRuleAnalysis(runConfig))
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
+
+  const canGenerate = Boolean(describedTable && ruleType)
+
+  function handleProfileTable() {
+    if (!describedTable) {
+      toast.error("Describe a table first")
+      return
+    }
+    if (!partitionColumn) {
+      toast.error("Select a period column first")
+      return
+    }
+    setProfile(
+      profileTable({
+        table: fullTableName(schema, tableName),
+        rows: describedTable.rows,
+        columns: describedTable.columns,
+        partitionColumn,
+        insertTimeColumn,
+        uniqKeyColumns,
+        lookbackDays: Number(profileLookbackDays),
+      })
+    )
+  }
+
+  const composerTableOptionsB = tableOptions.filter((t) => t !== tableName)
+  const composerColumnNamesB = composer.tableB.describedTable ? composer.tableB.describedTable.columns.map((c) => c.column) : []
+  const composerPeriodColumnsB = composer.tableB.describedTable
+    ? composer.tableB.describedTable.columns.filter((c) => c.is_period).map((c) => c.column)
+    : []
+
+  function buildComposerConfig() {
+    return {
+      mode: composer.columnMode,
+      table: fullTableName(schema, tableName),
+      partitionColumn,
+      granularity: "daily",
+      lookbackDays: Number(composer.lookbackDays),
+      limit: Number(composer.limit),
+      ruleName: composer.ruleName,
+      columnName: composer.columnName,
+      numerator: composer.numerator,
+      denominator: composer.denominator,
+      joinColumnsA: composer.joinColumnsA,
+      controlTable: composer.columnMode === "multiple" ? fullTableName(schema, composer.tableB.tableName) : "",
+      controlPartitionColumn: composer.tableB.partitionColumn,
+      joinColumnsB: composer.tableB.joinColumns,
+    }
+  }
+
+  function handleComposerDescribeB() {
+    const found = findMockTable(schema, composer.tableB.tableName)
+    if (!found) {
+      toast.error("Select Table B first")
+      return
+    }
+    const defaultPeriod =
+      found.columns.find((c) => c.column === DEFAULT_PARTITION_COLUMN)?.column || found.columns.find((c) => c.is_period)?.column || ""
+    patchTableB({ describedTable: found, partitionColumn: defaultPeriod })
+    patchComposer({ sqlQuery: "", previewRows: null })
+    notifySuccess("Table B described successfully", `${found.columns.length} columns found in ${fullTableName(schema, composer.tableB.tableName)}`)
+  }
+
+  const canGenerateComposer =
+    Boolean(describedTable) &&
+    Boolean(composer.numerator.trim()) &&
+    (composer.columnMode !== "multiple" || (Boolean(composer.tableB.describedTable) && Boolean(composer.denominator.trim())))
+
+  function handleComposerGenerateSql() {
+    try {
+      const query = buildComposerQuery(buildComposerConfig())
+      patchComposer({ sqlQuery: query, previewRows: null })
+      notifySuccess("SQL editor updated", "Generated SQL formula")
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
+
+  function handleComposerRunAnalysis() {
+    try {
+      const config = buildComposerConfig()
+      const rows = runComposerRule({
+        ...config,
+        rows: describedTable.rows,
+        controlRows: composer.tableB.describedTable?.rows || [],
+      })
+      patchComposer({ previewRows: rows })
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
+
+  function handleOpenSaveRule() {
+    const config = buildComposerConfig()
+    const genericTemplate = genericizeQuery(composer.sqlQuery, {
+      table: config.table,
+      controlTable: config.controlTable,
+      partitionColumn: config.partitionColumn,
+      granularity: config.granularity,
+      controlPartitionColumn: config.controlPartitionColumn,
+      columnName: composer.columnName,
+    })
+    setSaveForm({
+      columnName: composer.columnName,
+      ruleLabel: composer.ruleName,
+      description: composer.description,
+      queryTemplater: genericTemplate,
+      num: composer.numerator,
+      denom: composer.denominator,
+      rate: `round(100 * ({column_name}) / NULLIF(${composer.denominator || "denom"}, 0), 2)`,
+    })
+    setSaveOpen(true)
+  }
+
+  function handleSubmitSaveRule() {
+    if (!saveForm.ruleLabel.trim()) {
+      toast.error("Rule Label is required")
+      return
+    }
+    const key = composer.key || `custom_${slugify(saveForm.ruleLabel)}_${Date.now().toString(36)}`
+    const rule = {
+      key,
+      dimension: composer.dimension,
+      title: saveForm.ruleLabel,
+      description: saveForm.description,
+      template: saveForm.queryTemplater,
+      custom: true,
+      updatedAt: formatToday(),
+      mode: composer.columnMode,
+      columnName: saveForm.columnName,
+      num: saveForm.num,
+      denom: saveForm.denom,
+      rate: saveForm.rate,
+    }
+    setCustomRules((prev) => {
+      const exists = prev.some((r) => r.key === rule.key)
+      return exists ? prev.map((r) => (r.key === rule.key ? rule : r)) : [...prev, rule]
+    })
+    setSaveOpen(false)
+    setTopTab("rules-catalog")
+    setComposer(makeInitialComposerState(null))
+    notifySuccess("Rule saved", `"${saveForm.ruleLabel}" was added to Rules Catalog.`)
+  }
+
+  function handleAddNewRule() {
+    setComposer(makeInitialComposerState(null))
+    setTopTab("dq-composer")
+    setSubTab("composer")
+  }
+
+  function handleEditRule(rule) {
+    setComposer(makeInitialComposerState(rule))
+    setTopTab("dq-composer")
+    setSubTab("composer")
+  }
+
+  return (
+    <div className="flex h-full min-w-0 flex-1 flex-col">
+      <div className="shrink-0 border-b border-neutral-200 bg-white px-4 pt-3">
+        <Tabs value={topTab} onValueChange={setTopTab}>
+          <TabsList variant="line">
+            <TabsTrigger value="dq-composer">
+              <Wand2 />
+              DQ Explorer
+            </TabsTrigger>
+            <TabsTrigger value="rules-catalog">
+              <ListChecks />
+              Rules Catalog
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {topTab === "rules-catalog" ? (
+        <RulesManagementList customRules={customRules} onAddNew={handleAddNewRule} onEdit={handleEditRule} />
+      ) : (
+        <div className="flex h-full min-w-0 flex-1 items-stretch overflow-hidden">
+          <aside className="flex h-full w-[380px] shrink-0 flex-col gap-4 self-stretch overflow-y-auto border-r border-neutral-200 bg-white p-4 pt-6">
+            <FieldSelect id="dq-schema" label="Schema" value={schema} onValueChange={() => {}} options={DQ_SCHEMAS} />
+
+            <FieldSelect
+              id="dq-table"
+              label="Table"
+              value={tableName}
+              onValueChange={handleTableChange}
+              options={tableOptions}
+              placeholder="Select a table"
+            />
+
+            <Button type="button" className="w-full" onClick={handleDescribe} disabled={!tableName}>
+              Describe
+            </Button>
+
+            {describedTable && (
+              <>
+                <FieldSelect
+                  id="dq-period"
+                  label="Period"
+                  value={partitionColumn}
+                  onValueChange={setPartitionColumn}
+                  options={periodColumns}
+                  placeholder="Select a period column"
+                />
+
+                <Tabs value={subTab} onValueChange={setSubTab}>
+                  <TabsList className="w-full">
+                    <TabsTrigger value="profiling" className="flex-1">
+                      <Activity />
+                      Profiling
+                    </TabsTrigger>
+                    <TabsTrigger value="rules" className="flex-1">
+                      <SlidersHorizontal />
+                      Rules
+                    </TabsTrigger>
+                    <TabsTrigger value="composer" className="flex-1">
+                      <Blocks />
+                      Composer
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+
+                {subTab === "profiling" && (
+                  <ProfilingFields
+                    describedTable={describedTable}
+                    insertTimeColumn={insertTimeColumn}
+                    onInsertTimeColumnChange={setInsertTimeColumn}
+                    uniqKeyColumns={uniqKeyColumns}
+                    onUniqKeyColumnsChange={setUniqKeyColumns}
+                    lookbackDays={profileLookbackDays}
+                    onLookbackDaysChange={setProfileLookbackDays}
+                    onProfileTable={handleProfileTable}
+                  />
+                )}
+
+                {subTab === "rules" && (
+                  <>
+                    <FieldSelect
+                      id="dq-dimension"
+                      label="Dimension"
+                      value={dimension}
+                      onValueChange={handleDimensionChange}
+                      options={DIMENSIONS.map((d) => d.key)}
+                      placeholder="Select a dimension"
+                    />
+
+                    <FieldSelect
+                      id="dq-rule-type"
+                      label="Rule Type"
+                      value={ruleType}
+                      onValueChange={handleRuleTypeChange}
+                      options={availableRuleTypes}
+                      placeholder="Select a rule type"
+                      disabled={!dimension}
+                    />
+
+                    {ruleType && (
+                      <>
+                        <div className="h-px w-full bg-border" />
+                        <p className="text-xs font-medium text-muted-foreground uppercase">Rule Config</p>
+
+                        <FieldSelect
+                          id="dq-granularity"
+                          label="Granularity"
+                          value={granularity}
+                          onValueChange={setGranularity}
+                          options={availableGranularities}
+                        />
+
+                        {ruleType === "count_row" && (
+                          <div className="space-y-1.5">
+                            <Label htmlFor="dq-reference">Reference (expected row count)</Label>
+                            <Input
+                              id="dq-reference"
+                              type="number"
+                              placeholder="Optional"
+                              value={ruleState.reference}
+                              onChange={(e) => patchRuleState({ reference: e.target.value })}
+                            />
+                          </div>
+                        )}
+
+                        {[
+                          "not_null",
+                          "missing_key",
+                          "validity_column",
+                          "range_check",
+                          "pattern_check",
+                          "uniqueness_key",
+                          "allowed_values",
+                        ].includes(ruleType) && (
+                          <div className="space-y-1.5">
+                            <Label htmlFor="dq-columns">
+                              Column
+                              {ruleType === "not_null" && ` (max ${MAX_NOT_NULL_COLUMNS}) — ${ruleState.columnNames.length}/${MAX_NOT_NULL_COLUMNS}`}
+                              {ruleType === "missing_key" && ` (max ${MAX_MISSING_KEY_COLUMNS}) — ${ruleState.columnNames.length}/${MAX_MISSING_KEY_COLUMNS}`}
+                            </Label>
+                            <MultiSelect
+                              id="dq-columns"
+                              value={ruleState.columnNames}
+                              onValueChange={(next) => {
+                                const max =
+                                  ruleType === "not_null"
+                                    ? MAX_NOT_NULL_COLUMNS
+                                    : ruleType === "missing_key"
+                                      ? MAX_MISSING_KEY_COLUMNS
+                                      : 5
+                                patchRuleState({ columnNames: clampSelection(next, max) })
+                              }}
+                              options={dataColumns}
+                              placeholder="Cari kolom..."
+                            />
+                          </div>
+                        )}
+
+                        {ruleType === "missing_key" &&
+                          ruleState.columnNames.map((col) => (
+                            <div key={col} className="space-y-1.5">
+                              <Label htmlFor={`dq-ref-${col}`}>Reference for {col}</Label>
+                              <Input
+                                id={`dq-ref-${col}`}
+                                type="number"
+                                placeholder="Optional expected count"
+                                value={ruleState.referencesByColumn[col] || ""}
+                                onChange={(e) =>
+                                  patchRuleState({
+                                    referencesByColumn: { ...ruleState.referencesByColumn, [col]: e.target.value },
+                                  })
+                                }
+                              />
+                            </div>
+                          ))}
+
+                        {ruleType === "range_check" &&
+                          ruleState.columnNames.map((col) => (
+                            <div key={col} className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1.5">
+                                <Label htmlFor={`dq-min-${col}`}>{col} min</Label>
+                                <Input
+                                  id={`dq-min-${col}`}
+                                  type="number"
+                                  value={ruleState.minsByColumn[col] || ""}
+                                  onChange={(e) =>
+                                    patchRuleState({ minsByColumn: { ...ruleState.minsByColumn, [col]: e.target.value } })
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label htmlFor={`dq-max-${col}`}>{col} max</Label>
+                                <Input
+                                  id={`dq-max-${col}`}
+                                  type="number"
+                                  value={ruleState.maxsByColumn[col] || ""}
+                                  onChange={(e) =>
+                                    patchRuleState({ maxsByColumn: { ...ruleState.maxsByColumn, [col]: e.target.value } })
+                                  }
+                                />
+                              </div>
+                            </div>
+                          ))}
+
+                        {ruleType === "pattern_check" &&
+                          ruleState.columnNames.map((col) => (
+                            <div key={col} className="space-y-1.5">
+                              <Label htmlFor={`dq-pattern-${col}`}>Pattern for {col} (regex)</Label>
+                              <Input
+                                id={`dq-pattern-${col}`}
+                                placeholder="e.g. ^[A-Z0-9]+$"
+                                value={ruleState.patternsByColumn[col] || ""}
+                                onChange={(e) =>
+                                  patchRuleState({
+                                    patternsByColumn: { ...ruleState.patternsByColumn, [col]: e.target.value },
+                                  })
+                                }
+                              />
+                            </div>
+                          ))}
+
+                        {ruleType === "allowed_values" &&
+                          ruleState.columnNames.map((col) => (
+                            <div key={col} className="space-y-1.5">
+                              <Label htmlFor={`dq-allowed-${col}`}>Allowed values for {col} (comma-separated)</Label>
+                              <Input
+                                id={`dq-allowed-${col}`}
+                                placeholder="e.g. ACTIVE, INACTIVE, PENDING"
+                                value={ruleState.allowedValuesByColumn[col] || ""}
+                                onChange={(e) =>
+                                  patchRuleState({
+                                    allowedValuesByColumn: { ...ruleState.allowedValuesByColumn, [col]: e.target.value },
+                                  })
+                                }
+                              />
+                            </div>
+                          ))}
+
+                        {ruleType === "timeliness" && (
+                          <FieldSelect
+                            id="dq-insert-time-column"
+                            label="Insert Time Column"
+                            value={ruleState.insertTimeColumn}
+                            onValueChange={(v) => patchRuleState({ insertTimeColumn: v })}
+                            options={allColumnNames}
+                          />
+                        )}
+
+                        {ruleType === "consistency_key" && (
+                          <>
+                            <FieldSelect
+                              id="dq-key-column"
+                              label="Key Column"
+                              value={ruleState.keyColumn}
+                              onValueChange={(v) => patchRuleState({ keyColumn: v })}
+                              options={dataColumns}
+                            />
+                            <FieldSelect
+                              id="dq-control-table"
+                              label="Control Table"
+                              value={ruleState.controlTable}
+                              onValueChange={(v) => patchRuleState({ controlTable: v, controlKeyColumn: "" })}
+                              options={controlTableOptions}
+                            />
+                            <FieldSelect
+                              id="dq-control-key-column"
+                              label="Control Key Column"
+                              value={ruleState.controlKeyColumn}
+                              onValueChange={(v) => patchRuleState({ controlKeyColumn: v })}
+                              options={controlColumnNames}
+                              disabled={!controlTableDef}
+                            />
+                            <FieldSelect
+                              id="dq-mode"
+                              label="Mode"
+                              value={ruleState.mode}
+                              onValueChange={(v) => patchRuleState({ mode: v })}
+                              options={CONSISTENCY_KEY_MODES}
+                            />
+                          </>
+                        )}
+
+                        {ruleType === "consistency_value" && (
+                          <>
+                            <FieldSelect
+                              id="dq-metric-column"
+                              label="Metric Column"
+                              value={ruleState.metricColumn}
+                              onValueChange={(v) => patchRuleState({ metricColumn: v })}
+                              options={dataColumns}
+                            />
+                            <FieldSelect
+                              id="dq-agg-func"
+                              label="Aggregation"
+                              value={ruleState.aggFunc}
+                              onValueChange={(v) => patchRuleState({ aggFunc: v })}
+                              options={CONSISTENCY_VALUE_AGGREGATIONS}
+                            />
+                            <FieldSelect
+                              id="dq-control-table-value"
+                              label="Control Table"
+                              value={ruleState.controlTable}
+                              onValueChange={(v) => patchRuleState({ controlTable: v, controlMetricColumn: "" })}
+                              options={controlTableOptions}
+                            />
+                            <FieldSelect
+                              id="dq-control-metric-column"
+                              label="Control Metric Column"
+                              value={ruleState.controlMetricColumn}
+                              onValueChange={(v) => patchRuleState({ controlMetricColumn: v })}
+                              options={controlColumnNames}
+                              disabled={!controlTableDef}
+                            />
+                          </>
+                        )}
+
+                        {ruleType === "uniqueness_key" && (
+                          <>
+                            <FieldSelect
+                              id="dq-control-table-uniq"
+                              label="Control Table"
+                              value={ruleState.controlTable}
+                              onValueChange={(v) => patchRuleState({ controlTable: v, controlColumnNames: [] })}
+                              options={controlTableOptions}
+                            />
+                            <div className="space-y-1.5">
+                              <Label htmlFor="dq-control-columns">Control Key Column(s)</Label>
+                              <MultiSelect
+                                id="dq-control-columns"
+                                value={ruleState.controlColumnNames}
+                                onValueChange={(next) => patchRuleState({ controlColumnNames: clampSelection(next, 5) })}
+                                options={controlColumnNames}
+                                disabled={!controlTableDef}
+                                placeholder="Cari kolom..."
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="dq-lookback">Lookback Days</Label>
+                            <Input
+                              id="dq-lookback"
+                              type="number"
+                              value={lookbackDays}
+                              onChange={(e) => setLookbackDays(e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="dq-limit">Limit</Label>
+                            <Input id="dq-limit" type="number" value={limit} onChange={(e) => setLimit(e.target.value)} />
+                          </div>
+                        </div>
+
+                        <Button type="button" className="w-full" onClick={handleGenerateSql} disabled={!canGenerate}>
+                          Generate SQL
+                        </Button>
+                      </>
+                    )}
+                  </>
+                )}
+
+                {subTab === "composer" && (
+                  <ComposerFields
+                    isEditing={Boolean(composer.key)}
+                    columnNamesA={allColumnNames}
+                    dimensionKeys={getDimensionKeys()}
+                    composer={composer}
+                    patchComposer={patchComposer}
+                    patchTableB={patchTableB}
+                    tableOptionsB={composerTableOptionsB}
+                    columnNamesB={composerColumnNamesB}
+                    periodColumnsB={composerPeriodColumnsB}
+                    onDescribeB={handleComposerDescribeB}
+                    canGenerate={canGenerateComposer}
+                    onGenerateSql={handleComposerGenerateSql}
+                  />
+                )}
+              </>
+            )}
+          </aside>
+
+          <div className="flex h-full flex-1 flex-col items-start gap-4 overflow-y-auto p-8 pt-6">
+            {subTab === "profiling" && <ProfilingResults profile={profile} />}
+
+            {subTab === "rules" && (
+              <>
+                <div className="flex w-full flex-col gap-2">
+                  <p className="text-sm font-medium text-foreground">SQL Editor</p>
+                  {sqlQuery ? (
+                    <Textarea
+                      value={sqlQuery}
+                      onChange={(e) => setSqlQuery(e.target.value)}
+                      className="field-sizing-fixed h-[450px] resize-none overflow-y-auto bg-neutral-50 font-mono text-xs"
+                    />
+                  ) : describedTable ? (
+                    <div className="h-[450px] overflow-y-auto rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+                      <p className="mb-3 text-xs text-muted-foreground">
+                        Table described. Configure a rule on the left, then Generate SQL.
+                      </p>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>column_name</TableHead>
+                            <TableHead>type</TableHead>
+                            <TableHead>is_period</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {describedTable.columns.map((c) => (
+                            <TableRow key={c.column}>
+                              <TableCell>{c.column}</TableCell>
+                              <TableCell>{c.type}</TableCell>
+                              <TableCell>{String(c.is_period)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="flex h-[450px] w-full items-center justify-center rounded-lg border border-dashed border-neutral-200 text-sm text-muted-foreground">
+                      Select a table and click Describe to get started.
+                    </div>
+                  )}
+                </div>
+
+                <Button type="button" onClick={handleRunAnalysis} disabled={!sqlQuery}>
+                  <Play className="size-4" />
+                  Run Analysis
+                </Button>
+
+                {analysisRows && (
+                  <div className="w-full">
+                    <p className="mb-2 text-sm font-medium text-foreground">Result</p>
+                    <ResultTable rows={analysisRows} />
+                  </div>
+                )}
+              </>
+            )}
+
+            {subTab === "composer" && (
+              <ComposerResults
+                sqlQuery={composer.sqlQuery}
+                onSqlQueryChange={(v) => patchComposer({ sqlQuery: v })}
+                columnMode={composer.columnMode}
+                previewRows={composer.previewRows}
+                onRunAnalysis={handleComposerRunAnalysis}
+                onOpenSave={handleOpenSaveRule}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      <SaveRuleDialog
+        open={saveOpen}
+        onOpenChange={setSaveOpen}
+        form={saveForm}
+        onPatch={patchSaveForm}
+        onSubmit={handleSubmitSaveRule}
+      />
+    </div>
+  )
+}

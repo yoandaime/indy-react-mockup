@@ -3,6 +3,7 @@ import { Pin, PinOff, BadgeCheck, Circle, Trash2, ThumbsUp, MessageSquare, Eye }
 import { Button } from "@/components/ui/button"
 import StatusBadge from "@/components/ticketing/StatusBadge"
 import PriorityBadge from "@/components/ticketing/PriorityBadge"
+import SlaBadge from "@/components/ticketing/SlaBadge"
 import PicAvatarStack from "@/components/ticketing/PicAvatarStack"
 
 function formatDate(iso) {
@@ -43,17 +44,12 @@ export default function ContentModerationTicketCard({
         }}
         className="flex min-w-0 flex-1 cursor-pointer flex-col gap-3.5"
       >
-        <div className="flex flex-col gap-1">
-          <p className="text-lg leading-[27px] font-medium text-foreground">{ticket.title}</p>
-          <p className="text-base leading-6 text-foreground">{ticket.description}</p>
-        </div>
+        <p className="line-clamp-2 text-lg leading-[27px] font-medium text-foreground">{ticket.title}</p>
 
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={ticket.status} />
-            <span className="rounded-lg bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-              SLA {ticket.sla}
-            </span>
+            <SlaBadge ticket={ticket} />
             <PriorityBadge priority={ticket.priority} />
           </div>
 

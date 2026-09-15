@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   Search,
   Terminal,
@@ -7,7 +7,6 @@ import {
   Pencil,
   KeyRound,
   Trash2,
-  Sparkles,
   Info,
   X,
   Loader2,
@@ -42,6 +41,13 @@ import {
   DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion"
+import { cn } from "@/lib/utils"
 
 const EMBED_BASE_URL =
   "https://indy.telkomsel.co.id/content-mangement/embed/dashboard/tables"
@@ -55,6 +61,28 @@ function generateEmbedKey() {
     key += EMBED_KEY_CHARS[Math.floor(Math.random() * EMBED_KEY_CHARS.length)]
   }
   return key
+}
+
+// Representative dimension used for the per-table integration payloads below
+// (API/Kafka sections show one current score per table, not all 5 dimensions).
+const INTEGRATION_DIMENSION_INDEX = 0
+
+function statusForTier(tier) {
+  if (tier === "poor") return "critical"
+  if (tier === "average") return "warning"
+  return "healthy"
+}
+
+function buildTablePayload(table, { withTopic = false } = {}) {
+  const metric = getTableDimensionMetric(table, INTEGRATION_DIMENSION_INDEX)
+  const base = {
+    table: table.name,
+    dimension: DQ_DIMENSIONS[INTEGRATION_DIMENSION_INDEX].toLowerCase(),
+    score: metric.score,
+    status: statusForTier(metric.tier),
+    message: metric.insight,
+  }
+  return withTopic ? { topic: `dq-change-event.${table.name}`, ...base } : base
 }
 
 function SearchField({ value, onChange, placeholder = "Search..." }) {
@@ -81,9 +109,37 @@ function TagRow({ app, category }) {
   )
 }
 
+function SubscribedTableRow({ table, justSaved }) {
+  // Freshly-saved rows arrive with a highlighted background that fades back
+  // to transparent, layered on top of the entrance animation below — a
+  // "moved into this list" cue rather than an instant, silent appearance.
+  const [highlighted, setHighlighted] = useState(justSaved)
+
+  useEffect(() => {
+    if (!justSaved) return
+    const timeout = setTimeout(() => setHighlighted(false), 500)
+    return () => clearTimeout(timeout)
+  }, [justSaved])
+
+  return (
+    <div
+      className={cn(
+        "-mx-1.5 flex w-full items-center rounded-md border-b px-1.5 pb-2.5 transition-colors duration-700",
+        justSaved && "animate-in fade-in slide-in-from-top-2 duration-500",
+        highlighted ? "bg-primary/10" : "bg-transparent"
+      )}
+    >
+      <div className="flex flex-col items-start">
+        <p className="text-base font-medium text-foreground">{table.name}</p>
+        <TagRow app={table.app} category={table.category} />
+      </div>
+    </div>
+  )
+}
+
 function SubscribedBadge() {
   return (
-    <span className="flex shrink-0 items-center gap-1 rounded-[8px] bg-[#eff6ff] px-2 py-0.5">
+    <span className="flex shrink-0 animate-in items-center gap-1 rounded-[8px] bg-[#eff6ff] px-2 py-0.5 zoom-in-90 fade-in duration-300">
       <Check className="size-3 shrink-0 text-[#1d4ed8]" />
       <span className="text-xs leading-4 font-semibold text-[#1d4ed8]">
         Subscribed
@@ -132,7 +188,7 @@ function SelectAllRow({
           Unsubscribe
         </Button>
         <Button
-          variant="outline"
+          variant="default"
           size="sm"
           disabled={!canBulkSubscribe}
           onClick={onBulkSubscribe}
@@ -190,32 +246,25 @@ function DimensionTabs({ activeIndex, onChange }) {
 }
 
 function DimensionMetricRow({ table, dimensionIndex }) {
-  const { score, isGood, insight } = getTableDimensionMetric(table, dimensionIndex)
+  const { score, label, dot, text, bg, icon: TierIcon, insight } = getTableDimensionMetric(
+    table,
+    dimensionIndex
+  )
 
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
         <p className="text-xs font-semibold text-foreground">{table.name}</p>
         <span className="flex items-center gap-1">
-          <span
-            className={`size-1.5 rounded-full ${isGood ? "bg-emerald-500" : "bg-red-500"}`}
-          />
-          <span
-            className={`text-xs ${isGood ? "text-emerald-700" : "text-red-700"}`}
-          >
+          <span className={`size-1.5 rounded-full ${dot}`} />
+          <span className={`text-xs ${text}`} title={label}>
             {score}%
           </span>
         </span>
       </div>
-      <div
-        className={`flex items-start gap-1.5 rounded-lg p-1.5 ${isGood ? "bg-blue-50" : "bg-red-50"}`}
-      >
-        <Sparkles
-          className={`mt-0.5 size-3 shrink-0 ${isGood ? "text-blue-700" : "text-red-700"}`}
-        />
-        <p className={`text-xs ${isGood ? "text-blue-700" : "text-red-700"}`}>
-          {insight}
-        </p>
+      <div className={`flex items-start gap-1.5 rounded-lg p-1.5 ${bg}`}>
+        <TierIcon className={`mt-0.5 size-3 shrink-0 ${text}`} />
+        <p className={`text-xs ${text}`}>{insight}</p>
       </div>
     </div>
   )
@@ -279,6 +328,108 @@ function EmbedWidgetPreview({ tables }) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function JsonField({ label, value, type = "string", isLast = false }) {
+  return (
+    <div className="pl-4">
+      <span className="text-blue-700">"{label}"</span>
+      <span className="text-neutral-500">: </span>
+      {type === "number" ? (
+        <span className="text-amber-700">{value}</span>
+      ) : (
+        <span className="text-emerald-700">"{value}"</span>
+      )}
+      {!isLast && <span className="text-neutral-500">,</span>}
+    </div>
+  )
+}
+
+function EmbedAttribute({ name, value }) {
+  return (
+    <div className="pl-4">
+      <span className="text-blue-700">{name}</span>
+      <span className="text-neutral-500">=</span>
+      <span className="text-emerald-700">"{value}"</span>
+    </div>
+  )
+}
+
+function EmbedSnippetPreview({ embedUrl }) {
+  return (
+    <div>
+      <span className="text-neutral-500">{"<"}</span>
+      <span className="text-neutral-700">iframe</span>
+      <EmbedAttribute name="src" value={embedUrl} />
+      <EmbedAttribute name="width" value="100%" />
+      <EmbedAttribute name="height" value="480" />
+      <EmbedAttribute name="frameborder" value="0" />
+      <div>
+        <span className="text-neutral-500">{"></"}</span>
+        <span className="text-neutral-700">iframe</span>
+        <span className="text-neutral-500">{">"}</span>
+      </div>
+    </div>
+  )
+}
+
+function TablePayloadBlock({ table, withTopic }) {
+  const payload = buildTablePayload(table, { withTopic })
+
+  return (
+    <div>
+      <div className="text-neutral-500">{`// ${table.name}`}</div>
+      <div className="text-neutral-600">{"{"}</div>
+      {withTopic && <JsonField label="topic" value={payload.topic} />}
+      <JsonField label="table" value={payload.table} />
+      <JsonField label="dimension" value={payload.dimension} />
+      <JsonField label="score" value={payload.score} type="number" />
+      <JsonField label="status" value={payload.status} />
+      <JsonField label="message" value={payload.message} isLast />
+      <div className="text-neutral-600">{"}"}</div>
+    </div>
+  )
+}
+
+function IntegrationSection({ description, tables, withTopic }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    const payload = tables.map((table) => buildTablePayload(table, { withTopic }))
+    await navigator.clipboard.writeText(JSON.stringify(payload, null, 2))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">{description}</p>
+
+      <div className="relative min-w-0">
+        <div className="max-h-[220px] min-w-0 overflow-auto rounded-lg border bg-muted p-3 pr-28 font-mono text-xs leading-5 text-foreground">
+          {tables.length === 0 ? (
+            <span className="text-neutral-500">No subscribed tables yet.</span>
+          ) : (
+            tables.map((table, i) => (
+              <div key={table.id} className={i > 0 ? "mt-4" : undefined}>
+                <TablePayloadBlock table={table} withTopic={withTopic} />
+              </div>
+            ))
+          )}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="absolute top-2 right-2 gap-1"
+          disabled={tables.length === 0}
+          onClick={handleCopy}
+        >
+          {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+          Copy as JSON
+        </Button>
+      </div>
     </div>
   )
 }
@@ -351,8 +502,8 @@ function GetEmbedCodeDialog({ subscribedTables }) {
             {embedSnippet ? (
               <>
                 <div className="relative min-w-0">
-                  <pre className="max-h-64 min-w-0 overflow-auto rounded-lg border bg-muted p-3 pr-10 font-mono text-xs text-foreground">
-                    {embedSnippet}
+                  <pre className="max-h-64 min-w-0 overflow-auto rounded-lg border bg-muted p-3 pr-10 font-mono text-xs leading-5 text-foreground">
+                    <EmbedSnippetPreview embedUrl={embedUrl} />
                   </pre>
                   <Button
                     variant="outline"
@@ -392,6 +543,29 @@ function GetEmbedCodeDialog({ subscribedTables }) {
                     {pendingAction === "revoke" ? "Revoking..." : "Revoke key"}
                   </Button>
                 </div>
+
+                <Accordion multiple className="gap-2 rounded-lg border px-3">
+                  <AccordionItem value="active">
+                    <AccordionTrigger>Active — API / function</AccordionTrigger>
+                    <AccordionContent>
+                      <IntegrationSection
+                        description="Widget calls INDY on demand and gets back the current score for each subscribed table."
+                        tables={subscribedTables}
+                        withTopic={false}
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+                  <AccordionItem value="passive">
+                    <AccordionTrigger>Passive — Kafka topic</AccordionTrigger>
+                    <AccordionContent>
+                      <IntegrationSection
+                        description="INDY publishes an event automatically whenever a subscribed table's quality score changes."
+                        tables={subscribedTables}
+                        withTopic
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </>
             ) : (
               <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed p-6 text-center">
@@ -458,6 +632,14 @@ export default function SubscriptionPage() {
   )
   const [isEditMode, setIsEditMode] = useState(false)
   const [checkedIds, setCheckedIds] = useState(() => new Set())
+  // Ids that just moved into "Subscribed table names" on the last Save —
+  // drives the arrival highlight, then clears itself so it never replays.
+  const [justSavedIds, setJustSavedIds] = useState(() => new Set())
+  const justSavedTimeoutRef = useRef(null)
+
+  useEffect(() => {
+    return () => clearTimeout(justSavedTimeoutRef.current)
+  }, [])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -521,6 +703,10 @@ export default function SubscriptionPage() {
   const canBulkSubscribe = checkedIds.size > 0 && allCheckedUnsubscribed
   const canBulkUnsubscribe = checkedIds.size > 0 && allCheckedSubscribed
 
+  const hasDraftChanges =
+    draftSubscribedIds.size !== subscribedIds.size ||
+    [...draftSubscribedIds].some((id) => !subscribedIds.has(id))
+
   const bulkSubscribe = () => {
     setDraftSubscribedIds((prev) => {
       const next = new Set(prev)
@@ -552,14 +738,19 @@ export default function SubscriptionPage() {
   const handleSave = () => {
     // Subscribe/unsubscribe changes only take effect — and move between
     // lists — once Save is pressed; Cancel discards the draft entirely.
+    const newlySubscribed = [...draftSubscribedIds].filter((id) => !subscribedIds.has(id))
     setSubscribedIds(new Set(draftSubscribedIds))
     setCheckedIds(new Set())
     setIsEditMode(false)
+
+    setJustSavedIds(new Set(newlySubscribed))
+    clearTimeout(justSavedTimeoutRef.current)
+    justSavedTimeoutRef.current = setTimeout(() => setJustSavedIds(new Set()), 1500)
   }
 
   return (
-    <div className="min-h-[calc(100vh-56px)] bg-neutral-50 pt-10 px-10 pb-10">
-      <div className="mx-auto flex h-[822px] max-h-[calc(100vh-56px-40px-40px)] w-[925px] flex-col overflow-hidden rounded-xl border bg-white shadow-sm">
+    <div className="h-full min-w-0 flex-1 overflow-y-auto bg-neutral-50 pt-10 px-10 pb-10">
+      <div className="mx-auto flex h-[822px] max-h-[calc(100vh-80px)] w-[925px] flex-col overflow-hidden rounded-xl border bg-white shadow-sm">
         <div className="flex shrink-0 items-start justify-between border-b px-6 py-[18px]">
           <div className="space-y-0.5">
             <h2 className="text-xl leading-6 font-semibold text-foreground">
@@ -620,6 +811,7 @@ export default function SubscriptionPage() {
                       variant="default"
                       size="sm"
                       className="h-8 min-h-8 rounded-[8px] py-2 pr-2 pl-2.5 text-sm shadow-xs"
+                      disabled={!hasDraftChanges}
                       onClick={handleSave}
                     >
                       Save
@@ -695,14 +887,7 @@ export default function SubscriptionPage() {
                 />
               </div>
               {filteredSubscribedTables.map((t) => (
-                <div key={t.id} className="flex w-full items-center border-b pb-2.5">
-                  <div className="flex flex-col items-start">
-                    <p className="text-base font-medium text-foreground">
-                      {t.name}
-                    </p>
-                    <TagRow app={t.app} category={t.category} />
-                  </div>
-                </div>
+                <SubscribedTableRow key={t.id} table={t} justSaved={justSavedIds.has(t.id)} />
               ))}
               {filteredSubscribedTables.length === 0 && (
                 <p className="w-full py-4 text-sm text-muted-foreground">

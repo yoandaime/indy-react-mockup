@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -17,48 +17,86 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Combobox } from "@/components/ui/combobox"
+import IssueRowsEditor from "@/components/ticketing/IssueRowsEditor"
 import FieldLabel from "@/components/ticketing/FieldLabel"
+import { Copy, ImageUp, ShieldCheck, X } from "lucide-react"
 import {
+  APPLICATION_OPTIONS,
+  CONCERN_OPTIONS,
   CURRENT_USER,
   DOMAIN_OPTIONS,
   DOMAIN_TABLE_NAMES,
-  PIC_OPTIONS,
-  PRIORITY_META,
-  REGION_OPTIONS,
+  ISSUE_PRIORITY_OPTIONS,
+  PRIORITY_DESCRIPTIONS,
+  SCOPE_OPTIONS,
+  TICKET_KIND_OPTIONS,
+  getTicketIssues,
 } from "@/data/ticketingData"
+import { DEFAULT_CATEGORIES } from "@/data/picCategoryData"
 
-const TICKET_KIND_OPTIONS = ["Kendala", "Request"]
-const APPLICATION_OPTIONS = ["NDM", "ICAM", "OSS", "BSS"]
-const SCOPE_OPTIONS = ["Data Quality", "Data Ingestion"]
-const CONCERN_OPTIONS = ["Completeness", "Uniqueness", "Validity"]
-const OTHER_USER_OPTIONS = PIC_OPTIONS
-const PRIORITY_OPTIONS = Object.keys(PRIORITY_META)
+const CATEGORY_OPTIONS = DEFAULT_CATEGORIES.map((c) => c.name)
+const MAX_ISSUES = 5
 
-const EMPTY_FORM = {
-  ticketFor: "self",
-  issueOwner: "",
-  kind: "",
-  application: "",
-  scope: "",
-  concern: "",
-  domain: "",
-  domainCustom: false,
-  tableName: "",
-  tableNameOther: "",
-  region: "",
-  title: "",
-  ipAddress: "",
-  description: "",
-  priority: "",
-  tags: "",
+function slugify(value) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
 }
 
-function CategorySelect({ id, label, value, onValueChange, options, disabled, placeholder }) {
+function makeEmptyIssue() {
+  return {
+    id: `issue-${Math.random().toString(36).slice(2, 10)}`,
+    ipAddress: "",
+    tableName: "",
+    granularity: "Daily",
+    from: "",
+    to: "",
+  }
+}
+
+const EMPTY_FORM = {
+  kind: "",
+  application: "",
+  category: "",
+  domain: "",
+  domainCustom: false,
+  tableNameOther: "",
+  scope: "",
+  concern: "",
+  priority: "",
+  description: "",
+  onBehalfEmail: "",
+}
+
+function seedFormFromTicket(ticket) {
+  return {
+    kind: ticket.kind ?? "Kendala",
+    application: ticket.category?.application ?? "",
+    category: ticket.picCategory ?? "",
+    domain: ticket.domain ?? "",
+    domainCustom: !DOMAIN_TABLE_NAMES[ticket.domain],
+    tableNameOther: "",
+    scope: ticket.category?.scope ?? "",
+    concern: ticket.category?.concern ?? "",
+    priority: ticket.priority ?? "",
+    description: ticket.description ?? "",
+    onBehalfEmail: "",
+  }
+}
+
+function seedIssuesFromTicket(ticket) {
+  return getTicketIssues(ticket).map((issue) => ({
+    ...issue,
+    id: `issue-${Math.random().toString(36).slice(2, 10)}`,
+  }))
+}
+
+function CategorySelect({ id, label, value, onValueChange, options, disabled, placeholder, required = true }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-      <FieldLabel htmlFor={id} required className="text-xs font-medium text-foreground">
+      <FieldLabel htmlFor={id} required={required} className="text-xs font-medium text-foreground">
         {label}
       </FieldLabel>
       <Select value={value} onValueChange={onValueChange} disabled={disabled}>
@@ -77,55 +115,86 @@ function CategorySelect({ id, label, value, onValueChange, options, disabled, pl
   )
 }
 
-export default function NewTicketDialog({ open, onOpenChange, onCreate }) {
+export default function NewTicketDialog({ open, onOpenChange, onCreate, mode = "create", sourceTicket = null }) {
+  const isDuplicate = mode === "duplicate"
   const [form, setForm] = useState(EMPTY_FORM)
+  const [issues, setIssues] = useState([makeEmptyIssue()])
+  const [screenshot, setScreenshot] = useState(null)
   const [error, setError] = useState("")
+  const fileInputRef = useRef(null)
+
+  useEffect(() => {
+    if (open && isDuplicate && sourceTicket) {
+      setForm(seedFormFromTicket(sourceTicket))
+      setIssues(seedIssuesFromTicket(sourceTicket))
+      setScreenshot(null)
+      setError("")
+    }
+  }, [open, isDuplicate, sourceTicket])
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
 
-  const handleTicketForChange = (value) => {
-    setForm((f) => ({
-      ...f,
-      ticketFor: value,
-      issueOwner: value === "self" ? "" : f.issueOwner,
-    }))
-  }
-
-  const handleKindChange = (value) => {
-    setForm((f) => ({ ...f, kind: value, application: "", scope: "", concern: "" }))
-  }
-
   const handleApplicationChange = (value) => {
-    setForm((f) => ({ ...f, application: value, scope: "", concern: "" }))
+    setForm((f) => ({ ...f, application: value, category: "" }))
   }
 
   const handleScopeChange = (value) => {
     setForm((f) => ({ ...f, scope: value, concern: "" }))
   }
 
-  const handleConcernChange = (value) => {
-    setForm((f) => ({ ...f, concern: value }))
-  }
-
   const handleDomainChange = (value) => {
     if (value === "Other") {
-      setForm((f) => ({ ...f, domain: "", domainCustom: true, tableName: "", tableNameOther: "" }))
+      setForm((f) => ({ ...f, domain: "", domainCustom: true, tableNameOther: "" }))
       return
     }
     setForm((f) => ({
       ...f,
       domain: value,
       domainCustom: !DOMAIN_TABLE_NAMES[value],
-      tableName: "",
       tableNameOther: "",
     }))
   }
 
   const isCustomDomain = form.domainCustom
-  const tableNameOptions = DOMAIN_TABLE_NAMES[form.domain] ?? []
+
+  const updateIssue = (id, patch) => {
+    setIssues((prev) => prev.map((issue) => (issue.id === id ? { ...issue, ...patch } : issue)))
+  }
+
+  const addIssue = () => {
+    setIssues((prev) => (prev.length >= MAX_ISSUES ? prev : [...prev, makeEmptyIssue()]))
+  }
+
+  const removeIssue = (id) => {
+    setIssues((prev) => (prev.length <= 1 ? prev : prev.filter((issue) => issue.id !== id)))
+  }
+
+  const setImageFile = (file) => {
+    if (!file || !file.type.startsWith("image/")) return
+    setScreenshot({ name: file.name || "pasted-image.png", url: URL.createObjectURL(file) })
+  }
+
+  const handleDescriptionPaste = (e) => {
+    const item = Array.from(e.clipboardData?.items ?? []).find((it) => it.type.startsWith("image/"))
+    if (!item) return
+    e.preventDefault()
+    setImageFile(item.getAsFile())
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setImageFile(e.dataTransfer.files?.[0])
+  }
+
+  const handleImagePick = (e) => {
+    setImageFile(e.target.files?.[0])
+    e.target.value = ""
+  }
 
   const reset = () => {
     setForm(EMPTY_FORM)
+    setIssues([makeEmptyIssue()])
+    setScreenshot(null)
     setError("")
   }
 
@@ -135,25 +204,31 @@ export default function NewTicketDialog({ open, onOpenChange, onCreate }) {
   }
 
   const handleSubmit = () => {
-    const issueOwner = form.ticketFor === "self" ? CURRENT_USER : form.issueOwner.trim()
     const domainValue = form.domain.trim()
-    const tableNameValue = isCustomDomain ? form.tableNameOther.trim() : form.tableName
+    const issuesValid = issues.every(
+      (issue) => issue.ipAddress.trim() && issue.tableName.trim() && issue.granularity && issue.from && issue.to
+    )
     if (
       !form.kind.trim() ||
       !form.application.trim() ||
-      !form.scope.trim() ||
-      !form.concern.trim() ||
+      !form.category.trim() ||
       !domainValue ||
-      !tableNameValue ||
-      !form.title.trim() ||
-      !form.ipAddress.trim() ||
-      !form.description.trim() ||
+      !form.scope.trim() ||
+      !issuesValid ||
       !form.priority.trim() ||
-      (form.ticketFor === "other" && !issueOwner)
+      !form.description.trim()
     ) {
-      setError("Semua field wajib diisi, kecuali Issue Tags.")
+      setError("All required fields must be filled in before opening the ticket.")
       return
     }
+
+    const primaryIssue = issues[0]
+    const onBehalfEmail = form.onBehalfEmail.trim()
+    const ticketFor = onBehalfEmail ? "other" : "self"
+    const issueOwner = onBehalfEmail || CURRENT_USER
+
+    const description = form.description.trim()
+
     onCreate({
       kind: form.kind,
       category: {
@@ -161,19 +236,21 @@ export default function NewTicketDialog({ open, onOpenChange, onCreate }) {
         scope: form.scope.trim(),
         concern: form.concern.trim(),
       },
+      picCategory: form.category.trim(),
       domain: domainValue,
-      tableName: tableNameValue,
-      region: form.region,
-      ticketFor: form.ticketFor,
+      tableName: primaryIssue.tableName,
+      ticketFor,
       issueOwner,
-      title: form.title.trim(),
-      ipAddress: form.ipAddress.trim(),
-      description: form.description.trim(),
+      // The ticket's single heading is the reporter's own description — not
+      // an auto-generated "concern — table" slug — so the card and detail
+      // page show exactly what was typed in Detailed Data Issue Description.
+      title: description,
+      ipAddress: primaryIssue.ipAddress,
+      description,
       priority: form.priority,
-      tags: form.tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean),
+      tags: [form.kind, form.category, domainValue].filter(Boolean).map(slugify),
+      issues,
+      screenshot: screenshot?.url ?? null,
     })
     handleOpenChange(false)
   }
@@ -183,46 +260,25 @@ export default function NewTicketDialog({ open, onOpenChange, onCreate }) {
       <DialogContent className="p-6 sm:max-w-3xl">
         <DialogHeader className="gap-px">
           <DialogTitle className="text-xl leading-6 font-semibold">
-            Create New Issue Ticket
+            {isDuplicate ? "Duplicate Issue Ticket" : "Create New Issue Ticket"}
           </DialogTitle>
-          <DialogDescription>Isi form data issue untuk membuat tiket baru</DialogDescription>
+          <DialogDescription>
+            {isDuplicate
+              ? "Everything is copied from the original — change what differs, then submit."
+              : "Describe what is wrong with the data, or what you need built."}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
-          <div className="space-y-2.5">
-            <Label className="text-sm font-semibold text-foreground">
-              On Whose Behalf Is This Ticket?
-            </Label>
-            <RadioGroup
-              value={form.ticketFor}
-              onValueChange={handleTicketForChange}
-              className="flex flex-row items-center gap-6"
-            >
-              <div className="flex items-center gap-2">
-                <RadioGroupItem id="ticket-for-self" value="self" />
-                <Label htmlFor="ticket-for-self" className="text-sm font-medium text-foreground">
-                  By Myself
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem id="ticket-for-other" value="other" />
-                <Label htmlFor="ticket-for-other" className="text-sm font-medium text-foreground">
-                  On Behalf of Someone Else
-                </Label>
-              </div>
-            </RadioGroup>
-
-            {form.ticketFor === "other" && (
-              <CategorySelect
-                id="ticket-issue-owner"
-                label="Who owns this ticket?"
-                placeholder="Select an item"
-                value={form.issueOwner}
-                onValueChange={(value) => setForm((f) => ({ ...f, issueOwner: value }))}
-                options={OTHER_USER_OPTIONS}
-              />
-            )}
-          </div>
+          {isDuplicate && sourceTicket && (
+            <div className="flex items-start gap-2.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2.5 text-sm text-sky-700">
+              <Copy className="mt-0.5 size-4 shrink-0" />
+              <p>
+                Copied from <span className="font-semibold">{sourceTicket.id}</span>. This creates a separate
+                ticket — the original is untouched.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2.5">
             <Label className="text-sm font-semibold text-foreground">Issue Category</Label>
@@ -232,7 +288,7 @@ export default function NewTicketDialog({ open, onOpenChange, onCreate }) {
                 label="Type"
                 placeholder="Select"
                 value={form.kind}
-                onValueChange={handleKindChange}
+                onValueChange={(value) => setForm((f) => ({ ...f, kind: value }))}
                 options={TICKET_KIND_OPTIONS}
               />
               <CategorySelect
@@ -242,8 +298,49 @@ export default function NewTicketDialog({ open, onOpenChange, onCreate }) {
                 value={form.application}
                 onValueChange={handleApplicationChange}
                 options={APPLICATION_OPTIONS}
-                disabled={!form.kind}
               />
+              <CategorySelect
+                id="ticket-category"
+                label="Category"
+                placeholder="Select"
+                value={form.category}
+                onValueChange={(value) => setForm((f) => ({ ...f, category: value }))}
+                options={CATEGORY_OPTIONS}
+                disabled={!form.application}
+              />
+            </div>
+
+            <div className="flex items-start gap-4">
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <FieldLabel htmlFor="ticket-domain" required className="text-xs font-medium text-foreground">
+                  Domain
+                </FieldLabel>
+                {isCustomDomain ? (
+                  <Input
+                    id="ticket-domain"
+                    placeholder="Type domain name..."
+                    value={form.domain}
+                    onChange={set("domain")}
+                    className="h-9 shadow-xs"
+                  />
+                ) : (
+                  <Select value={form.domain} onValueChange={handleDomainChange}>
+                    <SelectTrigger id="ticket-domain" className="h-9 w-full shadow-xs">
+                      <SelectValue placeholder="Select" className="truncate" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DOMAIN_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {form.kind && (
+                  <p className="text-xs text-muted-foreground">Accepting {form.kind}</p>
+                )}
+              </div>
               <CategorySelect
                 id="ticket-scope"
                 label="Scope"
@@ -251,162 +348,116 @@ export default function NewTicketDialog({ open, onOpenChange, onCreate }) {
                 value={form.scope}
                 onValueChange={handleScopeChange}
                 options={SCOPE_OPTIONS}
-                disabled={!form.application}
               />
               <CategorySelect
                 id="ticket-concern"
                 label="Concern"
                 placeholder="Select"
                 value={form.concern}
-                onValueChange={handleConcernChange}
+                onValueChange={(value) => setForm((f) => ({ ...f, concern: value }))}
                 options={CONCERN_OPTIONS}
                 disabled={!form.scope}
+                required={false}
               />
             </div>
           </div>
 
-          <div className="flex items-start gap-4">
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <FieldLabel htmlFor="ticket-domain" required className="text-sm font-medium text-foreground">
-                Domain
-              </FieldLabel>
-              <Combobox
-                id="ticket-domain"
-                value={form.domain}
-                onValueChange={handleDomainChange}
-                options={DOMAIN_OPTIONS}
-                placeholder={isCustomDomain ? "Type domain name..." : "Select"}
-                className="w-full"
-              />
-            </div>
-
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <FieldLabel htmlFor="ticket-table-name" required className="text-sm font-medium text-foreground">
-                Table Name
-              </FieldLabel>
-              {isCustomDomain ? (
-                <Input
-                  id="ticket-table-name"
-                  placeholder="Type table name"
-                  value={form.tableNameOther}
-                  onChange={set("tableNameOther")}
-                  className="h-9 shadow-xs"
-                />
-              ) : (
-                <Select
-                  value={form.tableName}
-                  onValueChange={(value) => setForm((f) => ({ ...f, tableName: value }))}
-                  disabled={!form.domain}
-                >
-                  <SelectTrigger id="ticket-table-name" className="h-9 w-full shadow-xs">
-                    <SelectValue placeholder="Select" className="truncate" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tableNameOptions.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-start gap-4">
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <FieldLabel htmlFor="ticket-region" className="text-sm font-medium text-foreground">
-                Region
-              </FieldLabel>
-              <Select
-                value={form.region}
-                onValueChange={(value) => setForm((f) => ({ ...f, region: value }))}
-              >
-                <SelectTrigger id="ticket-region" className="h-9 w-full shadow-xs">
-                  <SelectValue placeholder="Select" className="truncate" />
-                </SelectTrigger>
-                <SelectContent>
-                  {REGION_OPTIONS.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <FieldLabel htmlFor="ticket-priority" required className="text-sm font-medium text-foreground">
-                Priority
-              </FieldLabel>
-              <Select
-                value={form.priority}
-                onValueChange={(value) => setForm((f) => ({ ...f, priority: value }))}
-              >
-                <SelectTrigger id="ticket-priority" className="h-9 w-full shadow-xs">
-                  <SelectValue placeholder="Select" className="truncate" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRIORITY_OPTIONS.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <IssueRowsEditor
+            issues={issues}
+            onUpdateIssue={updateIssue}
+            onAddIssue={addIssue}
+            onRemoveIssue={removeIssue}
+            max={MAX_ISSUES}
+          />
 
           <div className="space-y-1">
-            <FieldLabel htmlFor="ticket-ip" required className="text-sm font-medium text-foreground">
-              IP address
+            <FieldLabel htmlFor="ticket-priority" required className="text-sm font-medium text-foreground">
+              Priority
             </FieldLabel>
-            <Input
-              id="ticket-ip"
-              placeholder="e.g.10.62.70.123"
-              value={form.ipAddress}
-              onChange={set("ipAddress")}
-              className="h-9 shadow-xs"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <FieldLabel htmlFor="ticket-title" required className="text-sm font-medium text-foreground">
-              Issue / Ticket Title
-            </FieldLabel>
-            <Input
-              id="ticket-title"
-              placeholder="e.g. Incompleteness issue in table hr/count.split_error_counter_int..."
-              value={form.title}
-              onChange={set("title")}
-              className="h-9 shadow-xs"
-            />
+            <Select
+              value={form.priority}
+              onValueChange={(value) => setForm((f) => ({ ...f, priority: value }))}
+            >
+              <SelectTrigger id="ticket-priority" className="h-9 w-full shadow-xs">
+                <SelectValue placeholder="Select" className="truncate">
+                  {(value) => PRIORITY_DESCRIPTIONS[value]}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {ISSUE_PRIORITY_OPTIONS.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {PRIORITY_DESCRIPTIONS[option]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1">
             <FieldLabel htmlFor="ticket-description" required className="text-sm font-medium text-foreground">
               Detailed Data Issue Description
             </FieldLabel>
-            <Textarea
-              id="ticket-description"
-              placeholder="Type your message here."
-              value={form.description}
-              onChange={set("description")}
-              className="min-h-[73px] shadow-xs"
-            />
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+              className="space-y-2 rounded-lg border border-dashed border-transparent has-[textarea:focus]:border-transparent"
+            >
+              <Textarea
+                id="ticket-description"
+                placeholder="What is wrong, which partition or period it affects, and what you already checked. Paste a screenshot to attach it."
+                value={form.description}
+                onChange={set("description")}
+                onPaste={handleDescriptionPaste}
+                className="min-h-[73px] shadow-xs"
+              />
+              <div className="flex flex-wrap items-center gap-2.5">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImagePick}
+                  className="hidden"
+                />
+                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                  <ImageUp className="size-4" />
+                  Attach screenshot
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Drop files here, or paste a screenshot into the description.
+                </span>
+              </div>
+              {screenshot && (
+                <div className="flex w-fit items-center gap-2 rounded-lg border border-neutral-200 py-1 pr-2 pl-1">
+                  <img src={screenshot.url} alt={screenshot.name} className="size-8 rounded object-cover" />
+                  <span className="max-w-[200px] truncate text-xs text-foreground">{screenshot.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setScreenshot(null)}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="space-y-1">
-            <Label htmlFor="ticket-tags" className="text-sm font-medium text-foreground">
-              Issue Tags (comma separated)
-            </Label>
+          <div className="space-y-2 rounded-lg border border-dashed border-neutral-300 p-3">
+            <div className="flex items-center gap-1.5">
+              <ShieldCheck className="size-4 text-muted-foreground" />
+              <span className="text-sm font-semibold text-foreground">Raise on behalf of</span>
+              <span className="text-xs text-muted-foreground">— admin only, optional</span>
+            </div>
             <Input
-              id="ticket-tags"
-              placeholder="e.g. RDM, Sales/Layer, NMS, Incompleteness"
-              value={form.tags}
-              onChange={set("tags")}
+              type="email"
+              placeholder="colleague@telkomsel.co.id"
+              value={form.onBehalfEmail}
+              onChange={set("onBehalfEmail")}
               className="h-9 shadow-xs"
             />
+            <p className="text-xs text-muted-foreground">
+              You stay the reporter; they are recorded as whose problem it is.
+            </p>
           </div>
 
           {error && <p className="text-xs text-destructive">{error}</p>}
@@ -415,7 +466,7 @@ export default function NewTicketDialog({ open, onOpenChange, onCreate }) {
             <Button variant="outline" onClick={() => handleOpenChange(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit}>Open Issue Ticket</Button>
+            <Button onClick={handleSubmit}>{isDuplicate ? "Create Duplicate Ticket" : "Open Issue Ticket"}</Button>
           </div>
         </div>
       </DialogContent>

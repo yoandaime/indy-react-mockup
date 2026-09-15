@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Search } from "lucide-react"
+import { Plus, Search } from "lucide-react"
 import { ADMIN_CONNECTIONS } from "@/data/adminConnections"
+import { useViewMode } from "@/context/ViewModeContext"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -24,10 +25,12 @@ import {
 
 const PAGE_SIZE = 10
 
-export default function AdminPage() {
+export default function EnrichDataAdminPage() {
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
   const navigate = useNavigate()
+  const { viewMode } = useViewMode()
+  const isUserView = viewMode === "user"
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -52,12 +55,20 @@ export default function AdminPage() {
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
-    <div className="space-y-6 pt-5 px-10 pb-10">
-      <div className="space-y-0.5">
-        <h2 className="text-xl leading-6 font-semibold text-foreground">Registered Data Sources</h2>
-        <p className="text-xs leading-4 text-neutral-600">
-          All data source connections registered on the NDQ Enrich platform.
-        </p>
+    <div className="h-full min-w-0 flex-1 space-y-6 overflow-y-auto pt-5 px-10 pb-10 ]">
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-0.5">
+          <h2 className="text-xl leading-6 font-semibold text-foreground">Registered Data Sources</h2>
+          <p className="text-xs leading-4 text-neutral-600">
+            {isUserView
+              ? "Data that you've already registered on the NDQ Enrich platform."
+              : "All data source connections registered on the NDQ Enrich platform."}
+          </p>
+        </div>
+        <Button onClick={() => navigate("/enrich-data/admin/new")}>
+          <Plus className="size-4" />
+          Add New Data
+        </Button>
       </div>
 
       <div className="space-y-3.5">
@@ -71,7 +82,7 @@ export default function AdminPage() {
           <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         </div>
 
-        <div className="overflow-hidden rounded-lg border">
+        <div className="overflow-hidden rounded-lg border bg-white">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted hover:bg-muted">
@@ -91,7 +102,11 @@ export default function AdminPage() {
             </TableHeader>
             <TableBody>
               {paginated.map((c, i) => (
-                <TableRow key={c.connection_id}>
+                <TableRow
+                  key={c.connection_id}
+                  className="cursor-pointer"
+                  onClick={() => navigate(`/enrich-data/admin/${c.connection_id}`)}
+                >
                   <TableCell>{(page - 1) * PAGE_SIZE + i + 1}.</TableCell>
                   <TableCell>{c.connection_id}</TableCell>
                   <TableCell>{c.group_apps}</TableCell>
@@ -115,7 +130,10 @@ export default function AdminPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => navigate(`/admin/${c.connection_id}`)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        navigate(`/enrich-data/admin/${c.connection_id}`)
+                      }}
                     >
                       Detail
                     </Button>

@@ -109,18 +109,25 @@ export default function CategoryNav({
   }
 
   return (
-    <aside className="flex h-full w-[240px] shrink-0 flex-col gap-3 overflow-hidden border-r bg-neutral-50 p-4">
-      <Button
-        variant="outline"
-        size="sm"
-        className="w-full shrink-0 shadow-xs"
-        onClick={toggleAll}
-      >
-        {allExpanded ? "Collapse All" : "Expand All"}
-        {allExpanded ? <FolderOpen className="size-3" /> : <Folder className="size-3" />}
-      </Button>
+    <div className="flex flex-col gap-3">
+      <div className="flex gap-1.5">
+        <Button
+          variant="outline"
+          size="xs"
+          className="flex-1 shadow-xs"
+          onClick={toggleAll}
+        >
+          {allExpanded ? "Collapse" : "Expand"}
+          {allExpanded ? <FolderOpen className="size-3" /> : <Folder className="size-3" />}
+        </Button>
 
-      <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
+        <Button variant="outline" size="xs" className="flex-1 shadow-xs" onClick={onRequestCategory}>
+          Req Kategori
+          <FolderPlus className="size-3" />
+        </Button>
+      </div>
+
+      <div className="space-y-0.5">
         {tree.map((node) => (
           <CategoryNode
             key={node.name}
@@ -134,11 +141,6 @@ export default function CategoryNav({
           />
         ))}
       </div>
-
-      <Button variant="outline" size="sm" className="w-full shrink-0 shadow-xs" onClick={onRequestCategory}>
-        <FolderPlus className="size-4" />
-        Request Kategori
-      </Button>
-    </aside>
+    </div>
   )
 }

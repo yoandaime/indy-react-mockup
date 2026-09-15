@@ -10,7 +10,9 @@ import {
   LayoutGrid,
   List as ListIcon,
   Kanban as KanbanIcon,
-  ListFilter,
+  ArrowDownWideNarrow,
+  ArrowUpWideNarrow,
+  Download,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -42,12 +44,17 @@ import {
 import TicketCard from "@/components/ticketing/TicketCard"
 import StatusBadge from "@/components/ticketing/StatusBadge"
 import PriorityBadge from "@/components/ticketing/PriorityBadge"
+import SlaBadge from "@/components/ticketing/SlaBadge"
 import NewTicketDialog from "@/components/ticketing/NewTicketDialog"
 import CloseArchiveDialog from "@/components/ticketing/CloseArchiveDialog"
 import {
   STATUS,
+  STATUS_META,
   CURRENT_USER,
-  DOMAIN_PIC_MAP,
+  ISSUE_PRIORITY_OPTIONS,
+  CREATED_BY_OPTIONS,
+  buildTicketFromDraft,
+  getSlaInfo,
   ticketAuthorEmail,
   ticketAuthorInitials,
   ticketAuthorAvatarUrl,
@@ -56,14 +63,17 @@ import { cn } from "@/lib/utils"
 
 const PAGE_SIZE = 10
 
-const TASK_FILTER_OPTIONS = [
-  { value: "all", label: "All Ticket" },
-  { value: "mine", label: "My Task" },
+const BOARD_STATUSES = [STATUS.pending, STATUS.open, STATUS.inProgress, STATUS.solved]
+
+const STATUS_FILTER_OPTIONS = [
+  { value: "all", label: "All Status" },
+  ...BOARD_STATUSES.map((status) => ({ value: status, label: STATUS_META[status].label })),
 ]
 
-const TASK_FILTER_LABELS = Object.fromEntries(
-  TASK_FILTER_OPTIONS.map((option) => [option.value, option.label])
-)
+const PRIORITY_FILTER_OPTIONS = [
+  { value: "all", label: "All Priority" },
+  ...ISSUE_PRIORITY_OPTIONS.map((priority) => ({ value: priority, label: priority })),
+]
 
 const KANBAN_COLUMNS = [
   { status: STATUS.pending, bgClass: "bg-gray-50", countClass: "text-gray-700" },
@@ -71,8 +81,6 @@ const KANBAN_COLUMNS = [
   { status: STATUS.inProgress, bgClass: "bg-amber-50", countClass: "text-amber-700" },
   { status: STATUS.solved, bgClass: "bg-emerald-50", countClass: "text-emerald-700" },
 ]
-
-const BOARD_STATUSES = [STATUS.pending, STATUS.open, STATUS.inProgress, STATUS.solved]
 
 function formatDateTime(iso) {
   const date = new Date(iso)
@@ -90,11 +98,14 @@ function isMyTask(ticket) {
 }
 
 export default function TicketingPage() {
-  const { selectedCategoryPath, tickets, setTickets } = useOutletContext()
+  const { selectedCategoryPath, tickets, setTickets, taskFilter } = useOutletContext()
   const [boardTab, setBoardTab] = useState("board")
   const [viewMode, setViewMode] = useState("grid")
   const [search, setSearch] = useState("")
-  const [taskFilter, setTaskFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [priorityFilter, setPriorityFilter] = useState("all")
+  const [createdByFilter, setCreatedByFilter] = useState("all")
+  const [sortOrder, setSortOrder] = useState("desc")
   const [page, setPage] = useState(1)
 
   const handleBoardTabChange = (next) => {
@@ -110,7 +121,7 @@ export default function TicketingPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return tickets.filter((t) => {
+    const result = tickets.filter((t) => {
       if (viewMode !== "kanban") {
         const inBoard = BOARD_STATUSES.includes(t.status)
         const matchesTab = boardTab === "archive" ? t.status === STATUS.closed : inBoard
@@ -118,6 +129,10 @@ export default function TicketingPage() {
       }
 
       if (taskFilter === "mine" && !isMyTask(t)) return false
+
+      if (statusFilter !== "all" && t.status !== statusFilter) return false
+      if (priorityFilter !== "all" && t.priority !== priorityFilter) return false
+      if (createdByFilter !== "all" && t.createdBy !== createdByFilter) return false
 
       if (selectedCategoryPath) {
         const path = categoryPathOf(t)
@@ -133,36 +148,60 @@ export default function TicketingPage() {
         t.tags.some((tag) => tag.toLowerCase().includes(q))
       )
     })
-  }, [tickets, boardTab, viewMode, taskFilter, selectedCategoryPath, search])
+
+    const sorted = [...result].sort((a, b) => {
+      const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      return sortOrder === "asc" ? diff : -diff
+    })
+    return sorted
+  }, [
+    tickets,
+    boardTab,
+    viewMode,
+    taskFilter,
+    statusFilter,
+    priorityFilter,
+    createdByFilter,
+    sortOrder,
+    selectedCategoryPath,
+    search,
+  ])
 
   useEffect(() => {
     setPage(1)
-  }, [search, boardTab, taskFilter, selectedCategoryPath, viewMode])
+  }, [search, boardTab, taskFilter, statusFilter, priorityFilter, createdByFilter, selectedCategoryPath, viewMode])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const handleCreateTicket = (draft) => {
-    const now = new Date()
-    const datePrefix = `NDQR${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(
-      now.getDate()
-    ).padStart(2, "0")}`
-    const sameDayCount = tickets.filter((t) => t.id.startsWith(datePrefix)).length
-    const newTicket = {
-      id: `${datePrefix}${String(sameDayCount + 1).padStart(3, "0")}`,
-      author: CURRENT_USER,
-      createdAt: now.toISOString(),
-      status: STATUS.open,
-      sla: "<12h",
-      upvotes: 0,
-      views: 0,
-      replies: [],
-      resolution: null,
-      ...draft,
-      pic: DOMAIN_PIC_MAP[draft.domain] ?? [],
-    }
+    const newTicket = buildTicketFromDraft(tickets, draft)
     setTickets((prev) => [newTicket, ...prev])
     notifySuccess("Ticket created", `Ticket ${newTicket.id} has been created.`)
+  }
+
+  const handleExportCsv = () => {
+    const headers = ["Ticket ID", "Author", "Title", "Status", "Priority", "SLA", "Created By", "Created At"]
+    const rows = filtered.map((t) => [
+      t.id,
+      t.author,
+      t.title,
+      STATUS_META[t.status]?.label ?? t.status,
+      t.priority,
+      getSlaInfo(t).label,
+      t.createdBy,
+      formatDateTime(t.createdAt),
+    ])
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `tickets-${boardTab}-${new Date().toISOString().slice(0, 10)}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
   }
 
   const handleDrop = (status) => (e) => {
@@ -180,7 +219,11 @@ export default function TicketingPage() {
   const handleCloseArchiveSubmit = (resolution) => {
     if (!pendingCloseId) return
     setTickets((prev) =>
-      prev.map((t) => (t.id === pendingCloseId ? { ...t, status: STATUS.closed, resolution } : t))
+      prev.map((t) =>
+        t.id === pendingCloseId
+          ? { ...t, status: STATUS.closed, resolution, resolvedAt: new Date().toISOString() }
+          : t
+      )
     )
     notifySuccess("Ticket closed & archived", `Ticket ${pendingCloseId} has been closed and archived.`)
     setPendingCloseId(null)
@@ -191,48 +234,20 @@ export default function TicketingPage() {
       {picPopoverOpen && (
         <div className="fixed inset-0 z-40" onClick={(e) => e.stopPropagation()} />
       )}
-      <div className="w-full flex-1 space-y-4.5 bg-white p-8">
+      <div className="w-full flex-1 space-y-4.5 bg-white p-8 pt-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-6">
-            <Tabs value={boardTab} onValueChange={handleBoardTabChange}>
-              <TabsList variant="line">
-                <TabsTrigger value="board">
-                  <Presentation />
-                  Board
-                </TabsTrigger>
-                <TabsTrigger value="archive">
-                  <Archive />
-                  Archive
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            <div className="flex items-center gap-2.5">
-              <Select value={taskFilter} onValueChange={setTaskFilter}>
-                <SelectTrigger size="sm" className="w-fit rounded-full shadow-xs">
-                  <ListFilter className="size-4 text-muted-foreground" />
-                  <SelectValue>{(value) => TASK_FILTER_LABELS[value]}</SelectValue>
-                </SelectTrigger>
-                <SelectContent align="start">
-                  {TASK_FILTER_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <div className="relative w-[320px] shrink-0">
-                <Input
-                  placeholder="Search tickets..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="h-7 pr-8 font-normal shadow-xs"
-                />
-                <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              </div>
-            </div>
-          </div>
+          <Tabs value={boardTab} onValueChange={handleBoardTabChange}>
+            <TabsList variant="line">
+              <TabsTrigger value="board">
+                <Presentation />
+                Board
+              </TabsTrigger>
+              <TabsTrigger value="archive">
+                <Archive />
+                Archive
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
           <Button className="shrink-0" onClick={() => setNewTicketOpen(true)}>
             <Plus className="size-4" />
@@ -240,24 +255,94 @@ export default function TicketingPage() {
           </Button>
         </div>
 
-        <Tabs value={viewMode} onValueChange={setViewMode}>
-          <TabsList>
-            <TabsTrigger value="grid">
-              <LayoutGrid />
-              Grid
-            </TabsTrigger>
-            <TabsTrigger value="list">
-              <ListIcon />
-              List
-            </TabsTrigger>
-            {boardTab === "board" && (
-              <TabsTrigger value="kanban">
-                <KanbanIcon />
-                Kanban
-              </TabsTrigger>
-            )}
-          </TabsList>
-        </Tabs>
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Tabs value={viewMode} onValueChange={setViewMode}>
+              <TabsList>
+                <TabsTrigger value="grid">
+                  <LayoutGrid />
+                  Grid
+                </TabsTrigger>
+                <TabsTrigger value="list">
+                  <ListIcon />
+                  List
+                </TabsTrigger>
+                {boardTab === "board" && (
+                  <TabsTrigger value="kanban">
+                    <KanbanIcon />
+                    Kanban
+                  </TabsTrigger>
+                )}
+              </TabsList>
+            </Tabs>
+
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger size="sm" className="w-fit shadow-xs">
+                <SelectValue>{(value) => STATUS_FILTER_OPTIONS.find((o) => o.value === value)?.label}</SelectValue>
+              </SelectTrigger>
+              <SelectContent align="start">
+                {STATUS_FILTER_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <SelectTrigger size="sm" className="w-fit shadow-xs">
+                <SelectValue>{(value) => PRIORITY_FILTER_OPTIONS.find((o) => o.value === value)?.label}</SelectValue>
+              </SelectTrigger>
+              <SelectContent align="start">
+                {PRIORITY_FILTER_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={createdByFilter} onValueChange={setCreatedByFilter}>
+              <SelectTrigger size="sm" className="w-fit shadow-xs">
+                <SelectValue>{(value) => CREATED_BY_OPTIONS.find((o) => o.value === value)?.label}</SelectValue>
+              </SelectTrigger>
+              <SelectContent align="start">
+                {CREATED_BY_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="shadow-xs"
+              onClick={() => setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))}
+            >
+              {sortOrder === "desc" ? <ArrowDownWideNarrow className="size-4" /> : <ArrowUpWideNarrow className="size-4" />}
+              {sortOrder === "desc" ? "Desc" : "Asc"}
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <div className="relative w-[280px] shrink-0">
+              <Input
+                placeholder="Search tickets..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-8 pr-8 font-normal shadow-xs"
+              />
+              <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            </div>
+
+            <Button variant="outline" size="sm" className="shrink-0 shadow-xs" onClick={handleExportCsv}>
+              <Download className="size-4" />
+              Export CSV
+            </Button>
+          </div>
+        </div>
 
         {viewMode === "grid" && (
           <GridView
@@ -408,9 +493,7 @@ function ListView({ tickets, isEmpty, archive }) {
                 <PriorityBadge priority={t.priority} />
               </TableCell>
               <TableCell>
-                <span className="rounded-lg bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                  SLA {t.sla}
-                </span>
+                <SlaBadge ticket={t} />
               </TableCell>
               <TableCell className="text-center text-sm text-foreground">{t.upvotes}</TableCell>
               <TableCell className="text-center text-sm text-foreground">{t.replies.length}</TableCell>
