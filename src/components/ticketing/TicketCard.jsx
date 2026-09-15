@@ -54,7 +54,7 @@ export default function TicketCard({
         <span className="shrink-0 text-xs text-neutral-600">{formatDate(ticket.createdAt)}</span>
       </div>
 
-      <p className="line-clamp-2 text-lg leading-[27px] font-medium text-foreground">{ticket.title}</p>
+      <p className="line-clamp-2 text-base leading-[24px] font-medium text-foreground">{ticket.title}</p>
 
       <div className="mt-auto flex w-full flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -72,17 +72,17 @@ export default function TicketCard({
         </div>
 
         <div className="flex w-full items-center justify-between">
-          <div className="flex items-center gap-3 text-sm text-neutral-600">
+          <div className="flex items-center gap-3 text-xs text-neutral-600">
             <span className="flex items-center gap-1">
-              <ThumbsUp className="size-4.5" />
+              <ThumbsUp className="size-4" />
               {ticket.upvotes}
             </span>
             <span className="flex items-center gap-1">
-              <MessageSquare className="size-4.5" />
+              <MessageSquare className="size-4" />
               {ticket.replies.length} replies
             </span>
             <span className="flex items-center gap-1">
-              <Eye className="size-4.5" />
+              <Eye className="size-4" />
               {ticket.views} {ticket.views === 1 ? "view" : "views"}
             </span>
           </div>

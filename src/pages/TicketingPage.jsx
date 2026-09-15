@@ -327,7 +327,7 @@ export default function TicketingPage() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            <div className="relative w-[280px] shrink-0">
+            <div className="relative w-[220px] shrink-0">
               <Input
                 placeholder="Search tickets..."
                 value={search}
