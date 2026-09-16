@@ -85,6 +85,46 @@ function buildTablePayload(table, { withTopic = false } = {}) {
   return withTopic ? { topic: `dq-change-event.${table.name}`, ...base } : base
 }
 
+function buildKafkaConsumerScript(table, embedKey) {
+  const topic = `dq-change-event.${table.name}`
+  const password = embedKey || "<YourEmbedCode>"
+
+  return `const { Kafka } = require('kafkajs');
+
+// 1. Initialize the Kafka client with credentials
+const kafka = new Kafka({
+  clientId: 'my-simple-consumer',
+  brokers: ['10.62.70.106:9092'],
+  ssl: true,
+  sasl: {
+    mechanism: 'plain',
+    username: '2331234',
+    password: '${password}'
+  },
+});
+
+// 2. Create the consumer instance
+const consumer = kafka.consumer({ groupId: 'my-simple-group' });
+
+// 3. Connect, subscribe, and listen immediately using a top-level async IIFE
+(async () => {
+  console.log('Connecting to Kafka...');
+  await consumer.connect();
+
+  console.log('Subscribing to topic...');
+  await consumer.subscribe({ topic: '${topic}', fromBeginning: true });
+
+  console.log('Consumer is running and listening for messages...');
+  await consumer.run({
+    eachMessage: async ({ topic, partition, message }) => {
+      console.log(\`Received message: \${message.value.toString()}\`);
+    },
+  });
+})().catch(err => {
+  console.error('Error running consumer:', err);
+});`
+}
+
 function SearchField({ value, onChange, placeholder = "Search..." }) {
   return (
     <div className="flex h-8 min-h-8 w-full items-center gap-1.5 rounded-[8px] border bg-white px-2 py-[5.5px] shadow-xs has-[input:focus-visible]:border-ring has-[input:focus-visible]:ring-3 has-[input:focus-visible]:ring-ring/50">
@@ -427,7 +467,103 @@ function IntegrationSection({ description, tables, withTopic }) {
           onClick={handleCopy}
         >
           {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-          Copy as JSON
+          Copy
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+const JS_KEYWORDS = new Set([
+  "const",
+  "let",
+  "var",
+  "require",
+  "async",
+  "await",
+  "function",
+  "return",
+  "new",
+  "catch",
+  "true",
+  "false",
+])
+
+const JS_TOKEN_REGEX =
+  /(\/\/.*$)|('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`)|(\b\d+\b)|([A-Za-z_$][\w$]*)/gm
+
+const JS_TOKEN_CLASS = {
+  comment: "text-neutral-500",
+  string: "text-emerald-700",
+  number: "text-amber-700",
+  keyword: "text-blue-700",
+}
+
+function JsCodeBlock({ code }) {
+  return code.split("\n").map((line, i) => {
+    const nodes = []
+    let lastIndex = 0
+    let match
+    let key = 0
+    JS_TOKEN_REGEX.lastIndex = 0
+    while ((match = JS_TOKEN_REGEX.exec(line)) !== null) {
+      if (match.index > lastIndex) {
+        nodes.push(<span key={key++}>{line.slice(lastIndex, match.index)}</span>)
+      }
+      const [text, comment, str, num, ident] = match
+      const type = comment ? "comment" : str ? "string" : num ? "number" : JS_KEYWORDS.has(ident) ? "keyword" : null
+      nodes.push(
+        type ? (
+          <span key={key++} className={JS_TOKEN_CLASS[type]}>
+            {text}
+          </span>
+        ) : (
+          <span key={key++}>{text}</span>
+        )
+      )
+      lastIndex = JS_TOKEN_REGEX.lastIndex
+    }
+    if (lastIndex < line.length) {
+      nodes.push(<span key={key++}>{line.slice(lastIndex)}</span>)
+    }
+    return <div key={i}>{nodes.length > 0 ? nodes : " "}</div>
+  })
+}
+
+function KafkaScriptSection({ description, tables, embedKey }) {
+  const [copied, setCopied] = useState(false)
+
+  const script =
+    tables.length > 0
+      ? tables
+          .map((table) => `// ${table.name}\n${buildKafkaConsumerScript(table, embedKey)}`)
+          .join("\n\n")
+      : null
+
+  const handleCopy = async () => {
+    if (!script) return
+    await navigator.clipboard.writeText(script)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">{description}</p>
+
+      <div className="relative min-w-0">
+        <pre className="max-h-[220px] min-w-0 overflow-auto rounded-lg border bg-muted p-3 pr-28 font-mono text-xs leading-5 whitespace-pre text-foreground">
+          {script ? <JsCodeBlock code={script} /> : <span className="text-neutral-500">No subscribed tables yet.</span>}
+        </pre>
+        <Button
+          variant="outline"
+          size="sm"
+          className="absolute top-2 right-2 gap-1"
+          disabled={!script}
+          onClick={handleCopy}
+        >
+          {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+          Copy
         </Button>
       </div>
     </div>
@@ -507,12 +643,12 @@ function GetEmbedCodeDialog({ subscribedTables }) {
                   </pre>
                   <Button
                     variant="outline"
-                    size="icon-sm"
-                    className="absolute top-2 right-2"
+                    size="sm"
+                    className="absolute top-2 right-2 gap-1"
                     onClick={handleCopy}
                   >
-                    {copied ? <Check /> : <Copy />}
-                    <span className="sr-only">Copy embed link</span>
+                    {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                    Copy
                   </Button>
                 </div>
                 <div className="flex items-center gap-2">
@@ -558,10 +694,10 @@ function GetEmbedCodeDialog({ subscribedTables }) {
                   <AccordionItem value="passive">
                     <AccordionTrigger>Passive — Kafka topic</AccordionTrigger>
                     <AccordionContent>
-                      <IntegrationSection
-                        description="INDY publishes an event automatically whenever a subscribed table's quality score changes."
+                      <KafkaScriptSection
+                        description="INDY publishes an event automatically whenever a subscribed table's quality score changes. Use this consumer script to listen for changes."
                         tables={subscribedTables}
-                        withTopic
+                        embedKey={embedKey}
                       />
                     </AccordionContent>
                   </AccordionItem>

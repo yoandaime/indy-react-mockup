@@ -79,11 +79,11 @@ export default function TicketCard({
             </span>
             <span className="flex items-center gap-1">
               <MessageSquare className="size-4" />
-              {ticket.replies.length} replies
+              {ticket.replies.length}
             </span>
             <span className="flex items-center gap-1">
               <Eye className="size-4" />
-              {ticket.views} {ticket.views === 1 ? "view" : "views"}
+              {ticket.views}
             </span>
           </div>
           <PicAvatarStack pic={ticket.pic} onPopoverOpenChange={onPicPopoverOpenChange} />

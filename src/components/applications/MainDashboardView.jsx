@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ChevronLeft, ChevronRight, ChevronDown, Info } from "lucide-react"
+import { ChevronLeft, ChevronRight, ChevronDown, Info, AlertTriangle } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import {
@@ -140,6 +140,13 @@ export default function MainDashboardView() {
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col overflow-y-auto bg-neutral-50">
+      <div className="flex items-start gap-3 border-b border-neutral-200 bg-amber-50 px-6 py-3">
+        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
+        <p className="text-sm text-amber-800">
+          <span className="font-medium">Under development</span> — this page shows mock data and is still being built.
+        </p>
+      </div>
+
       <div className="flex flex-col items-center gap-3 border-b border-neutral-200 bg-white py-5">
         <p className="text-sm font-medium text-neutral-400">Dimensional View</p>
         <Tabs value={viewMode} onValueChange={setViewMode}>

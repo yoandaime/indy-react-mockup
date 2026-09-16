@@ -29,7 +29,6 @@ export default function ApplicationsSidebar({ apps, activeKey, onSelect, onColla
                 isActive && "bg-[#fdecee] font-medium text-primary hover:bg-[#fdecee]"
               )}
             >
-              <img src={app.icon} alt="" className="size-4 shrink-0 object-contain" />
               <span className="min-w-0 flex-1 truncate">{app.title}</span>
             </button>
           )
