@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Subscription — Admin Overview</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body{margin:0;background:#f8fafc;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#0f172a;}
+  a{color:#2563eb;text-decoration:none;}
+  a:hover{color:#1d4ed8;}
+  .nav-btn{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 12px;border-radius:8px;border:none;background:transparent;color:#334155;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;}
+  .nav-btn:hover{background:#f1f5f9;}
+  .nav-btn.active{background:#fee2e2;color:#dc2626;font-weight:700;}
+  .nav-dot{width:6px;height:6px;border-radius:999px;background:currentColor;flex-shrink:0;opacity:.6;}
+  .tab-btn{border:none;font-family:inherit;font-size:14px;padding:9px 18px;border-radius:8px;cursor:pointer;}
+  .icon-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid #e2e8f0;background:#ffffff;border-radius:8px;padding:10px 16px;font-family:inherit;font-size:14px;font-weight:600;color:#0f172a;cursor:pointer;}
+  .icon-btn:hover{background:#f8fafc;}
+  .stat-card{background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:6px;}
+  .panel{background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;}
+  .user-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px;cursor:pointer;border-bottom:1px solid #eef2f7;}
+  .user-row:hover{background:#f8fafc;}
+  .user-row:last-of-type{border-bottom:none;}
+  .field{font-family:inherit;font-size:14px;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;background:#ffffff;color:#0f172a;}
+  .field:focus{outline:2px solid #bfdbfe;outline-offset:-1px;}
+  .table-card{border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;}
+  .chip{font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:3px 9px;border-radius:999px;}
+  .sub-badge{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#ffffff;padding:8px 14px;border-radius:8px;}
+  .sub-item{border-bottom:1px solid #eef2f7;padding:14px 4px;}
+  .sub-item:last-of-type{border-bottom:none;}
+</style>
+</helmet>
+
+<div style="width:100%;min-height:100vh;display:flex;">
+
+  <!-- SIDEBAR -->
+  <div style="width:248px;flex-shrink:0;background:#ffffff;border-right:1px solid #e5e7eb;padding:20px 14px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh;overflow-y:auto;box-sizing:border-box;">
+    <div style="display:flex;align-items:center;gap:10px;padding:6px 10px 22px;">
+      <div style="width:30px;height:30px;border-radius:8px;background:#dc2626;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;">I</div>
+      <span style="font-weight:800;font-size:18px;letter-spacing:.3px;">INDY</span>
+    </div>
+
+    <button type="button" class="nav-btn"><span class="nav-dot"></span>Applications</button>
+    <button type="button" class="nav-btn"><span class="nav-dot"></span>Insiden Management</button>
+    <button type="button" class="nav-btn"><span class="nav-dot"></span>Data Observability</button>
+    <button type="button" class="nav-btn"><span class="nav-dot"></span>Enrich Data</button>
+    <button type="button" class="nav-btn active"><span class="nav-dot"></span>Subscription</button>
+    <button type="button" class="nav-btn"><span class="nav-dot"></span>Catalog Knowledge</button>
+    <button type="button" class="nav-btn"><span class="nav-dot"></span>INDY Assistant</button>
+
+    <div style="margin-top:auto;padding-top:16px;border-top:1px solid #f1f5f9;display:flex;align-items:center;gap:10px;">
+      <div style="width:32px;height:32px;border-radius:999px;background:#e2e8f0;flex-shrink:0;"></div>
+      <div style="display:flex;flex-direction:column;line-height:1.25;">
+        <span style="font-size:13px;font-weight:700;">Antonio Nusa</span>
+        <span style="font-size:12px;color:#64748b;">Admin</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div style="flex-grow:1;padding:32px 40px 60px;display:flex;flex-direction:column;gap:22px;min-width:0;">
+
+    <!-- header -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
+      <div>
+        <h1 style="margin:0;font-size:26px;font-weight:800;">Subscription</h1>
+        <p style="margin:4px 0 0;font-size:14px;color:#64748b;">All your data source subscriptions</p>
+      </div>
+      <button type="button" class="icon-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="17 8 21 12 17 16"></polyline><polyline points="7 8 3 12 7 16"></polyline><line x1="14" y1="4" x2="10" y2="20"></line></svg>
+        Get embed code
+      </button>
+    </div>
+
+    <!-- tab switcher: admin overview vs functional page -->
+    <div style="display:inline-flex;background:#f1f5f9;border-radius:10px;padding:4px;gap:2px;width:fit-content;" role="tablist" aria-label="Subscription views">
+      <button type="button" class="tab-btn" role="tab" aria-selected="{{isOverview}}" style="{{overviewTabStyle}}" onClick="{{setOverview}}">Admin Overview</button>
+      <button type="button" class="tab-btn" role="tab" aria-selected="{{isManage}}" style="{{manageTabStyle}}" onClick="{{setManage}}">Manage Subscriptions</button>
+    </div>
+
+    <!-- ============ OVERVIEW TAB ============ -->
+    <sc-if value="{{isOverview}}" hint-placeholder-val="{{true}}">
+    <div style="display:flex;flex-direction:column;gap:22px;">
+
+      <p style="margin:0;font-size:12px;color:#94a3b8;">Sample data shown for layout review.</p>
+
+      <!-- stat cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;">
+        <sc-for list="{{statCards}}" as="stat" hint-placeholder-count="4">
+          <div class="stat-card">
+            <span style="font-size:13px;color:#64748b;font-weight:600;">{{stat.label}}</span>
+            <span style="font-weight:800;line-height:1.25;word-break:break-word;font-size:{{stat.valueSize}};">{{stat.value}}</span>
+            <span style="font-size:12px;color:#94a3b8;">{{stat.sub}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- charts -->
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;">
+        <div class="panel">
+          <h3 style="margin:0 0 4px;font-size:15px;font-weight:700;">Most apps subscribed</h3>
+          <p style="margin:0 0 18px;font-size:12px;color:#94a3b8;">Top applications by number of subscriptions</p>
+          <div style="display:flex;flex-direction:column;gap:16px;">
+            <sc-for list="{{appChart}}" as="a" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <span style="width:96px;flex-shrink:0;font-size:13px;font-weight:600;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{a.label}}</span>
+                <div style="flex-grow:1;height:14px;background:#f1f5f9;border-radius:999px;overflow:hidden;">
+                  <div style="{{a.barStyle}}"></div>
+                </div>
+                <span style="width:26px;flex-shrink:0;text-align:right;font-size:12px;color:#64748b;">{{a.count}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3 style="margin:0 0 4px;font-size:15px;font-weight:700;">Most tables subscribed</h3>
+          <p style="margin:0 0 18px;font-size:12px;color:#94a3b8;">Top tables by number of subscribers</p>
+          <div style="display:flex;flex-direction:column;gap:16px;">
+            <sc-for list="{{tableChart}}" as="t2" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <span style="width:150px;flex-shrink:0;font-size:13px;font-weight:600;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{t2.label}}</span>
+                <div style="flex-grow:1;height:14px;background:#f1f5f9;border-radius:999px;overflow:hidden;">
+                  <div style="{{t2.barStyle}}"></div>
+                </div>
+                <span style="width:26px;flex-shrink:0;text-align:right;font-size:12px;color:#64748b;">{{t2.count}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <!-- users list -->
+      <div class="panel" style="padding:0;overflow:hidden;">
+        <div style="padding:18px 20px 14px;border-bottom:1px solid #eef2f7;">
+          <h3 style="margin:0 0 3px;font-size:15px;font-weight:700;">Users &amp; their subscriptions</h3>
+          <p style="margin:0;font-size:12px;color:#94a3b8;">Click a row to see what a user is subscribed to</p>
+        </div>
+
+        <sc-for list="{{users}}" as="u" hint-placeholder-count="5">
+          <div>
+            <div class="user-row" onClick="{{u.toggle}}">
+              <div style="display:flex;align-items:center;gap:14px;min-width:0;">
+                <div style="width:38px;height:38px;border-radius:999px;background:#eff6ff;color:#2563eb;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;">{{u.initials}}</div>
+                <div style="display:flex;flex-direction:column;min-width:0;">
+                  <span style="font-size:14px;font-weight:700;">{{u.name}}</span>
+                  <span style="font-size:12px;color:#64748b;">{{u.role}}</span>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:20px;flex-shrink:0;">
+                <span class="chip">{{u.countLabel}}</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.4" style="{{u.chevronStyle}}"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </div>
+            </div>
+
+            <sc-if value="{{u.expanded}}" hint-placeholder-val="{{false}}">
+              <div style="background:#f8fafc;padding:6px 20px 18px 72px;">
+                <sc-for list="{{u.subscriptions}}" as="s" hint-placeholder-count="3">
+                  <div class="sub-item" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                    <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+                      <span style="font-size:13px;font-weight:700;">{{s.table}}</span>
+                      <span style="font-size:12px;color:#64748b;">Schema: {{s.schema}} · Granularity: {{s.granularity}}</span>
+                    </div>
+                    <div style="display:flex;gap:6px;flex-shrink:0;">
+                      <span class="chip">{{s.app}}</span>
+                      <span class="chip">{{s.category}}</span>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============ MANAGE (FUNCTIONAL) TAB — same as existing page ============ -->
+    <sc-if value="{{isManage}}" hint-placeholder-val="{{false}}">
+    <div style="display:flex;gap:16px;align-items:flex-start;">
+
+      <div style="flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:16px;">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#64748b;font-weight:600;">
+            Application
+            <select class="field" style="min-width:150px;">
+              <option>ALL</option>
+              <option>NDM</option>
+              <option>RAN</option>
+            </select>
+          </label>
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#64748b;font-weight:600;">
+            Category Data
+            <select class="field" style="min-width:150px;">
+              <option>ALL</option>
+              <option>RAN</option>
+              <option>Core</option>
+              <option>Transport</option>
+            </select>
+          </label>
+          <div style="flex-grow:1;"></div>
+          <button type="button" class="icon-btn" style="align-self:flex-end;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+            Edit subscription
+          </button>
+        </div>
+
+        <label style="display:block;">
+          <span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Search tables</span>
+          <input class="field" style="width:100%;box-sizing:border-box;" type="text" placeholder="Search...">
+        </label>
+
+        <p style="margin:0;font-size:13px;color:#64748b;">Showing {{manageTables.length}} of 40 tables</p>
+
+        <div>
+          <sc-for list="{{manageTables}}" as="t" hint-placeholder-count="5">
+            <div class="table-card">
+              <div style="min-width:0;">
+                <div style="font-size:15px;font-weight:700;margin-bottom:4px;">{{t.table}}</div>
+                <div style="display:flex;gap:6px;margin-bottom:6px;">
+                  <span class="chip">NDM</span>
+                  <span class="chip">RAN</span>
+                </div>
+                <div style="font-size:12px;color:#94a3b8;">Schema: public · Granularity: {{t.granularity}}</div>
+              </div>
+              <sc-if value="{{t.subscribed}}" hint-placeholder-val="{{false}}">
+                <span class="sub-badge" style="background:#2563eb;flex-shrink:0;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  Subscribed
+                </span>
+              </sc-if>
+              <sc-if value="{{t.notSubscribed}}" hint-placeholder-val="{{true}}">
+                <button type="button" class="icon-btn" style="flex-shrink:0;padding:8px 14px;font-size:13px;">Subscribe</button>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div class="panel" style="width:320px;flex-shrink:0;position:sticky;top:32px;">
+        <h3 style="margin:0 0 2px;font-size:16px;font-weight:800;">Subscribed table names</h3>
+        <p style="margin:0 0 14px;font-size:12px;color:#94a3b8;">Total: {{subscribedTables.length}} subscriptions</p>
+        <label style="display:block;margin-bottom:14px;">
+          <span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Search subscribed tables</span>
+          <input class="field" style="width:100%;box-sizing:border-box;" type="text" placeholder="Search...">
+        </label>
+        <sc-for list="{{subscribedTables}}" as="st" hint-placeholder-count="2">
+          <div class="sub-item">
+            <div style="font-size:14px;font-weight:700;margin-bottom:4px;">{{st.table}}</div>
+            <div style="display:flex;gap:6px;margin-bottom:6px;">
+              <span class="chip">NDM</span>
+              <span class="chip">RAN</span>
+            </div>
+            <div style="font-size:12px;color:#94a3b8;">Schema: public · Granularity: {{st.granularity}}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2563eb","options":["#2563eb","#7c3aed","#059669","#dc2626"]},"accent2":{"editor":"color","default":"#e11d48","options":["#e11d48","#f59e0b","#0891b2","#7c3aed"]},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { activeTab: 'overview', expandedUserId: 3 };
+  }
+
+  toggleUser(id) {
+    this.setState({ expandedUserId: this.state.expandedUserId === id ? null : id });
+  }
+
+  renderVals() {
+    const accent = this.props.accent ?? '#2563eb';
+    const accent2 = this.props.accent2 ?? '#e11d48';
+    const isOverview = this.state.activeTab === 'overview';
+    const isManage = this.state.activeTab === 'manage';
+
+    const activeStyle = `background:#ffffff;color:${accent};font-weight:700;box-shadow:0 1px 2px rgba(15,23,42,0.10);`;
+    const inactiveStyle = `background:transparent;color:#64748b;font-weight:600;`;
+
+    const usersRaw = [
+      { id: 1, name: 'Antonio Nusa', role: 'Admin', subs: [
+        { table: 'ran_cell_day_5g', app: 'NDM', category: 'RAN', schema: 'public', granularity: 'daily' },
+        { table: 'ran_cell_day_2g', app: 'NDM', category: 'RAN', schema: 'public', granularity: 'daily' },
+        { table: 'ran_sector_carrier_hour', app: 'NDM', category: 'RAN', schema: 'public', granularity: 'hourly' },
+        { table: 'core_traffic_hour', app: 'NDM', category: 'Core', schema: 'public', granularity: 'hourly' },
+        { table: 'core_signaling_daily', app: 'NDM', category: 'Core', schema: 'public', granularity: 'daily' },
+        { table: 'transport_link_util_hour', app: 'NDM', category: 'Transport', schema: 'public', granularity: 'hourly' },
+        { table: 'ipdm_perf_summary_daily', app: 'IPDM', category: 'Performance', schema: 'public', granularity: 'daily' },
+        { table: 'ipdm_alarm_hour', app: 'IPDM', category: 'Alarm', schema: 'public', granularity: 'hourly' },
+        { table: 'acs_ticket_daily', app: 'ACS AXIOS', category: 'Ticketing', schema: 'public', granularity: 'daily' },
+        { table: 'avp_usage_daily', app: 'AVP', category: 'Usage', schema: 'public', granularity: 'daily' },
+      ]},
+      { id: 2, name: 'Sarah Putri', role: 'Data Analyst', subs: [
+        { table: 'ran_cell_hour_5g', app: 'NDM', category: 'RAN', schema: 'public', granularity: 'hourly' },
+        { table: 'ran_cell_hour_2g', app: 'NDM', category: 'RAN', schema: 'public', granularity: 'hourly' },
+        { table: 'ran_cell_day_4g', app: 'NDM', category: 'RAN', schema: 'public', granularity: 'daily' },
+        { table: 'transport_capacity_daily', app: 'NDM', category: 'Transport', schema: 'public', granularity: 'daily' },
+        { table: 'ipdm_alarm_hour', app: 'IPDM', category: 'Alarm', schema: 'public', granularity: 'hourly' },
+        { table: 'ipdm_config_daily', app: 'IPDM', category: 'Config', schema: 'public', granularity: 'daily' },
+        { table: 'acs_resolution_hour', app: 'ACS AXIOS', category: 'Ticketing', schema: 'public', granularity: 'hourly' },
+      ]},
+      { id: 3, name: 'Budi Santoso', role: 'Network Engineer', subs: [
+        { table: 'ran_cell_day_5g', app: 'NDM', category: 'RAN', schema: 'public', granularity: 'daily' },
+        { table: 'ran_cell_day_2g', app: 'NDM', category: 'RAN', schema: 'public', granularity: 'daily' },
+        { table: 'ran_sector_carrier_hour', app: 'NDM', category: 'RAN', schema: 'public', granularity: 'hourly' },
+        { table: 'ran_neighbor_relation_daily', app: 'NDM', category: 'RAN', schema: 'public', granularity: 'others' },
+        { table: 'ran_cell_hour_5g', app: 'NDM', category: 'RAN', schema: 'public', granularity: 'hourly' },
+        { table: 'ran_cell_hour_2g', app: 'NDM', category: 'RAN', schema: 'public', granularity: 'hourly' },
+        { table: 'ran_cell_day_4g', app: 'NDM', category: 'RAN', schema: 'public', granularity: 'daily' },
+        { table: 'core_traffic_hour', app: 'NDM', category: 'Core', schema: 'public', granularity: 'hourly' },
+        { table: 'core_signaling_daily', app: 'NDM', category: 'Core', schema: 'public', granularity: 'daily' },
+        { table: 'ipdm_perf_summary_daily', app: 'IPDM', category: 'Performance', schema: 'public', granularity: 'daily' },
+        { table: 'ipdm_alarm_hour', app: 'IPDM', category: 'Alarm', schema: 'public', granularity: 'hourly' },
+        { table: 'ipdm_config_daily', app: 'IPDM', category: 'Config', schema: 'public', granularity: 'daily' },
+        { table: 'acs_ticket_daily', app: 'ACS AXIOS', category: 'Ticketing', schema: 'public', granularity: 'daily' },
+        { table: 'acs_resolution_hour', app: 'ACS AXIOS', category: 'Ticketing', schema: 'public', granularity: 'hourly' },
+        { table: 'avp_session_hour', app: 'AVP', category: 'Session', schema: 'public', granularity: 'hourly' },
+      ]},
+      { id: 4, name: 'Fajar Wibowo', role: 'Data Analyst', subs: [
+        { table: 'ran_neighbor_relation_daily', app: 'NDM', category: 'RAN', schema: 'public', granularity: 'others' },
+        { table: 'transport_link_util_hour', app: 'NDM', category: 'Transport', schema: 'public', granularity: 'hourly' },
+        { table: 'transport_capacity_daily', app: 'NDM', category: 'Transport', schema: 'public', granularity: 'daily' },
+        { table: 'ipdm_perf_summary_daily', app: 'IPDM', category: 'Performance', schema: 'public', granularity: 'daily' },
+        { table: 'acs_ticket_daily', app: 'ACS AXIOS', category: 'Ticketing', schema: 'public', granularity: 'daily' },
+        { table: 'acs_resolution_hour', app: 'ACS AXIOS', category: 'Ticketing', schema: 'public', granularity: 'hourly' },
+        { table: 'avp_usage_daily', app: 'AVP', category: 'Usage', schema: 'public', granularity: 'daily' },
+      ]},
+      { id: 5, name: 'Rina Amalia', role: 'Viewer', subs: [
+        { table: 'ran_cell_day_5g', app: 'NDM', category: 'RAN', schema: 'public', granularity: 'daily' },
+        { table: 'ran_sector_carrier_hour', app: 'NDM', category: 'RAN', schema: 'public', granularity: 'hourly' },
+        { table: 'ipdm_alarm_hour', app: 'IPDM', category: 'Alarm', schema: 'public', granularity: 'hourly' },
+        { table: 'ipdm_config_daily', app: 'IPDM', category: 'Config', schema: 'public', granularity: 'daily' },
+        { table: 'avp_session_hour', app: 'AVP', category: 'Session', schema: 'public', granularity: 'hourly' },
+      ]},
+    ];
+
+    const totalSubs = usersRaw.reduce((sum, u) => sum + u.subs.length, 0);
+    const totalUsers = usersRaw.length;
+    const uniqueTables = new Set();
+    const appTotals = {};
+    const tableTotals = {};
+    usersRaw.forEach(u => u.subs.forEach(s => {
+      uniqueTables.add(s.table);
+      appTotals[s.app] = (appTotals[s.app] || 0) + 1;
+      tableTotals[s.table] = (tableTotals[s.table] || 0) + 1;
+    }));
+
+    const barRow = (label, count, max, color) => ({
+      label,
+      count,
+      barStyle: `width:${Math.round((count / max) * 100)}%;height:100%;background:${color};border-radius:999px;`,
+    });
+
+    const appEntries = Object.entries(appTotals).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const appMax = Math.max(...appEntries.map(([, v]) => v));
+    const appChart = appEntries.map(([label, count]) => barRow(label, count, appMax, accent));
+
+    const tableEntries = Object.entries(tableTotals).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const tableMax = Math.max(...tableEntries.map(([, v]) => v));
+    const tableChart = tableEntries.map(([label, count]) => barRow(label, count, tableMax, accent2));
+
+    const statCards = [
+      { label: 'Total users', value: String(totalUsers), sub: 'Active subscribers', valueSize: '26px' },
+      { label: 'Total subscriptions', value: String(totalSubs), sub: 'across all users', valueSize: '26px' },
+      { label: 'Most subscribed app', value: appEntries[0][0], sub: `${appEntries[0][1]} subscriptions`, valueSize: '19px' },
+      { label: 'Most subscribed table', value: tableEntries[0][0], sub: `${tableEntries[0][1]} subscribers`, valueSize: '17px' },
+    ];
+
+    const users = usersRaw.map(u => {
+      const expanded = this.state.expandedUserId === u.id;
+      return {
+        id: u.id,
+        name: u.name,
+        role: u.role,
+        initials: u.name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase(),
+        countLabel: `${u.subs.length} subscription${u.subs.length === 1 ? '' : 's'}`,
+        expanded,
+        chevronStyle: expanded ? 'transform:rotate(180deg);transition:transform .15s ease;' : 'transform:rotate(0deg);transition:transform .15s ease;',
+        toggle: () => this.toggleUser(u.id),
+        subscriptions: u.subs,
+      };
+    });
+
+    const manageTables = [
+      { table: 'ran_cell_day_5g', granularity: 'daily', subscribed: true, notSubscribed: false },
+      { table: 'ran_cell_day_2g', granularity: 'daily', subscribed: true, notSubscribed: false },
+      { table: 'ran_sector_carrier_hour', granularity: 'hourly', subscribed: false, notSubscribed: true },
+      { table: 'ran_neighbor_relation_daily', granularity: 'others', subscribed: false, notSubscribed: true },
+      { table: 'ran_cell_hour_5g', granularity: 'hourly', subscribed: false, notSubscribed: true },
+      { table: 'ran_cell_hour_2g', granularity: 'hourly', subscribed: false, notSubscribed: true },
+      { table: 'ran_cell_day_4g', granularity: 'daily', subscribed: false, notSubscribed: true },
+    ];
+    const subscribedTables = manageTables.filter(t => t.subscribed);
+
+    return {
+      isOverview,
+      isManage,
+      overviewTabStyle: isOverview ? activeStyle : inactiveStyle,
+      manageTabStyle: isManage ? activeStyle : inactiveStyle,
+      setOverview: () => this.setState({ activeTab: 'overview' }),
+      setManage: () => this.setState({ activeTab: 'manage' }),
+      statCards,
+      appChart,
+      tableChart,
+      users,
+      manageTables,
+      subscribedTables,
+    };
+  }
+}
+</script>
+</body>
+</html>

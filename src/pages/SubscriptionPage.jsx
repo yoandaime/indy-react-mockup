@@ -10,21 +10,33 @@ import {
   Info,
   X,
   Loader2,
+  Users,
+  Rss,
+  LayoutGrid,
+  Table2,
 } from "lucide-react"
 import {
   APPLICATIONS,
   CATEGORIES,
+  HOST_OPTIONS,
+  LAYER_ID_OPTIONS,
   SUBSCRIPTION_TABLES,
   INITIAL_SUBSCRIBED_IDS,
   DQ_DIMENSIONS,
   getTableDimensionMetric,
 } from "@/data/subscriptionTables"
+import {
+  ADMIN_USERS,
+  getAdminOverviewStats,
+  getUserSubscribedTables,
+} from "@/data/subscriptionAdminData"
+import { ticketAuthorInitials, ticketAuthorAvatarUrl } from "@/data/ticketingData"
 import indyLogo from "@/assets/indy-logo.svg"
 import extensionButtonLogo from "@/assets/Icon + Text Logo.png"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import {
   Select,
   SelectContent,
@@ -47,6 +59,17 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from "@/components/ui/accordion"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import { cn } from "@/lib/utils"
 
 const EMBED_BASE_URL =
@@ -140,20 +163,21 @@ function SearchField({ value, onChange, placeholder = "Search..." }) {
 }
 
 function TagRow({ app, category, schema, granularity }) {
+  const parts = [
+    app,
+    category,
+    schema && `Schema: ${schema}`,
+    granularity && `Granularity: ${granularity}`,
+  ].filter(Boolean)
+
   return (
-    <div className="flex flex-col gap-0.5">
-      <div className="flex items-center gap-2 text-xs text-[#525252]">
-        <span>{app}</span>
-        <span className="size-[5px] shrink-0 rounded-full bg-[#e5e5e5]" />
-        <span>{category}</span>
-      </div>
-      {(schema || granularity) && (
-        <p className="text-xs text-muted-foreground">
-          {schema && <>Schema: {schema}</>}
-          {schema && granularity && " · "}
-          {granularity && <>Granularity: {granularity}</>}
-        </p>
-      )}
+    <div className="flex flex-wrap items-center gap-2 text-xs text-[#525252]">
+      {parts.map((part, index) => (
+        <span key={part} className="flex items-center gap-2">
+          {index > 0 && <span className="size-[5px] shrink-0 rounded-full bg-[#e5e5e5]" />}
+          {part}
+        </span>
+      ))}
     </div>
   )
 }
@@ -178,8 +202,8 @@ function SubscribedTableRow({ table, justSaved }) {
         highlighted ? "bg-primary/10" : "bg-transparent"
       )}
     >
-      <div className="flex flex-col items-start">
-        <p className="text-[14px] font-medium text-foreground">{table.name}</p>
+      <div className="flex flex-col items-start gap-0.5">
+        <p className="text-[14px] leading-tight font-medium text-foreground">{table.name}</p>
         <TagRow
           app={table.app}
           category={table.category}
@@ -263,9 +287,9 @@ function SubscriptionRow({ table, isSubscribed, isEditMode, isChecked, onToggleC
           onCheckedChange={() => onToggleChecked(table.id)}
           isEditMode={isEditMode}
         />
-        <div className="flex min-w-0 flex-1 flex-col items-start">
+        <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
           <p
-            className="w-full truncate text-[14px] leading-6 font-medium text-[#0a0a0a]"
+            className="w-full truncate text-[14px] leading-tight font-medium text-[#0a0a0a]"
             title={table.name}
           >
             {table.name}
@@ -772,9 +796,272 @@ function GetEmbedCodeDialog({ subscribedTables }) {
   )
 }
 
+function OverviewStatCard({ icon: Icon, label, value, sublabel }) {
+  return (
+    <Card className="shadow-sm">
+      <CardContent className="space-y-1">
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Icon className="size-3.5" />
+          {label}
+        </span>
+        <p className="truncate text-[18px] font-semibold text-foreground" title={String(value)}>
+          {value}
+        </p>
+        {sublabel && <p className="text-xs text-muted-foreground">{sublabel}</p>}
+      </CardContent>
+    </Card>
+  )
+}
+
+function TopBarRow({ label, count, max, barClassName }) {
+  const pct = max > 0 ? Math.round((count / max) * 100) : 0
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-32 shrink-0 truncate text-sm text-foreground" title={label}>
+        {label}
+      </span>
+      <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
+        <div className={cn("h-full rounded-full", barClassName)} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="w-6 shrink-0 text-right text-sm text-muted-foreground">{count}</span>
+    </div>
+  )
+}
+
+function TopBarCard({ title, description, rows, barClassName }) {
+  const max = Math.max(...rows.map((r) => r.count), 1)
+  return (
+    <Card className="shadow-sm">
+      <CardHeader>
+        <CardTitle className="text-base">{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {rows.map((row) => (
+          <TopBarRow key={row.label} label={row.label} count={row.count} max={max} barClassName={barClassName} />
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
+
+const USER_SUBSCRIPTIONS_PAGE_SIZE = 10
+
+function UserSubscriptionAccordionItem({ user }) {
+  const tables = useMemo(() => getUserSubscribedTables(user), [user])
+  const [search, setSearch] = useState("")
+
+  const filteredTables = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return tables
+    return tables.filter((table) => table.name.toLowerCase().includes(q))
+  }, [tables, search])
+
+  return (
+    <AccordionItem value={String(user.id)}>
+      <AccordionTrigger className="px-4 hover:no-underline">
+        <div className="flex flex-1 items-center justify-between pr-2">
+          <div className="flex items-center gap-2">
+            <Avatar className="size-7">
+              <AvatarImage src={ticketAuthorAvatarUrl(user.name)} alt={user.name} />
+              <AvatarFallback>{ticketAuthorInitials(user.name)}</AvatarFallback>
+            </Avatar>
+            <span className="font-medium text-foreground">{user.name}</span>
+          </div>
+          <Badge variant="secondary">{tables.length} subscriptions</Badge>
+        </div>
+      </AccordionTrigger>
+      <AccordionContent className="px-4 pl-[52px]">
+        <div className="space-y-2 rounded-lg border bg-muted/20 p-3 shadow-xs">
+          <SearchField
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search table name..."
+          />
+          <div className="flex max-h-[240px] flex-col gap-2 overflow-y-auto">
+            {filteredTables.map((table) => (
+              <div key={table.id} className="border-b pb-1.5 last:border-b-0">
+                <p className="text-sm leading-tight font-medium text-foreground">{table.name}</p>
+                <TagRow
+                  app={table.app}
+                  category={table.category}
+                  schema={table.schema}
+                  granularity={table.granularity}
+                />
+              </div>
+            ))}
+            {filteredTables.length === 0 && (
+              <p className="py-3 text-center text-sm text-muted-foreground">
+                No tables match your search.
+              </p>
+            )}
+          </div>
+        </div>
+      </AccordionContent>
+    </AccordionItem>
+  )
+}
+
+function UserSubscriptionsList({ users }) {
+  const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+
+  const filteredUsers = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return users
+    return users.filter((user) => user.name.toLowerCase().includes(q))
+  }, [users, search])
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / USER_SUBSCRIPTIONS_PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const pageUsers = filteredUsers.slice(
+    (currentPage - 1) * USER_SUBSCRIPTIONS_PAGE_SIZE,
+    currentPage * USER_SUBSCRIPTIONS_PAGE_SIZE
+  )
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <h3 className="text-base font-semibold text-foreground">User Subscriptions</h3>
+        <p className="text-sm text-muted-foreground">Click a row to see what a user is subscribed to</p>
+      </div>
+
+      <div className="max-w-sm">
+        <SearchField
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setPage(1)
+          }}
+          placeholder="Search user name..."
+        />
+      </div>
+
+      <div className="rounded-lg border">
+        <div className="flex items-center justify-between border-b bg-muted/40 px-4 py-2 text-sm font-medium text-foreground">
+          <span>User</span>
+          <span className="pr-2">Subscriptions</span>
+        </div>
+        {pageUsers.length > 0 ? (
+          <Accordion multiple>
+            {pageUsers.map((user) => (
+              <UserSubscriptionAccordionItem key={user.id} user={user} />
+            ))}
+          </Accordion>
+        ) : (
+          <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+            No users match your search.
+          </p>
+        )}
+      </div>
+
+      {totalPages > 1 && (
+        <Pagination className="justify-between">
+          <p className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages}
+          </p>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                href="#"
+                aria-disabled={currentPage === 1}
+                className={currentPage === 1 ? "pointer-events-none opacity-50" : undefined}
+                onClick={(e) => {
+                  e.preventDefault()
+                  setPage((p) => Math.max(1, p - 1))
+                }}
+              />
+            </PaginationItem>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              <PaginationItem key={p}>
+                <PaginationLink
+                  href="#"
+                  isActive={p === currentPage}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setPage(p)
+                  }}
+                >
+                  {p}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            <PaginationItem>
+              <PaginationNext
+                href="#"
+                aria-disabled={currentPage === totalPages}
+                className={currentPage === totalPages ? "pointer-events-none opacity-50" : undefined}
+                onClick={(e) => {
+                  e.preventDefault()
+                  setPage((p) => Math.min(totalPages, p + 1))
+                }}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
+    </div>
+  )
+}
+
+function SubscriptionOverviewTab() {
+  const stats = useMemo(() => getAdminOverviewStats(), [])
+
+  return (
+    <div className="space-y-4 p-6">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <OverviewStatCard
+          icon={Users}
+          label="Total users"
+          value={stats.totalUsers}
+          sublabel="Active subscribers"
+        />
+        <OverviewStatCard
+          icon={Rss}
+          label="Total subscriptions"
+          value={stats.totalSubscriptions}
+          sublabel="across all users"
+        />
+        <OverviewStatCard
+          icon={LayoutGrid}
+          label="Most subscribed app"
+          value={stats.mostSubscribedApp?.app ?? "—"}
+          sublabel={stats.mostSubscribedApp ? `${stats.mostSubscribedApp.count} subscriptions` : undefined}
+        />
+        <OverviewStatCard
+          icon={Table2}
+          label="Most subscribed table"
+          value={stats.mostSubscribedTable?.table?.name ?? "—"}
+          sublabel={stats.mostSubscribedTable ? `${stats.mostSubscribedTable.count} subscribers` : undefined}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <TopBarCard
+          title="Most apps subscribed"
+          description="Top applications by number of subscriptions"
+          rows={stats.topApps.map((row) => ({ label: row.app, count: row.count }))}
+          barClassName="bg-blue-600"
+        />
+        <TopBarCard
+          title="Most tables subscribed"
+          description="Top tables by number of subscribers"
+          rows={stats.topTables.map((row) => ({ label: row.table.name, count: row.count }))}
+          barClassName="bg-primary"
+        />
+      </div>
+
+      <UserSubscriptionsList users={ADMIN_USERS} />
+    </div>
+  )
+}
+
 export default function SubscriptionPage() {
+  const [mainTab, setMainTab] = useState("overview")
   const [appFilter, setAppFilter] = useState("ALL")
   const [categoryFilter, setCategoryFilter] = useState("ALL")
+  const [hostFilter, setHostFilter] = useState("ALL")
+  const [layerFilter, setLayerFilter] = useState("ALL")
   const [search, setSearch] = useState("")
   const [subscribedSearch, setSubscribedSearch] = useState("")
   const [subscribedIds, setSubscribedIds] = useState(
@@ -801,10 +1088,12 @@ export default function SubscriptionPage() {
     return SUBSCRIPTION_TABLES.filter((t) => {
       if (appFilter !== "ALL" && t.app !== appFilter) return false
       if (categoryFilter !== "ALL" && t.category !== categoryFilter) return false
+      if (hostFilter !== "ALL" && t.host !== hostFilter) return false
+      if (layerFilter !== "ALL" && t.layerId !== layerFilter) return false
       if (q && !t.name.toLowerCase().includes(q)) return false
       return true
     })
-  }, [appFilter, categoryFilter, search])
+  }, [appFilter, categoryFilter, hostFilter, layerFilter, search])
 
   const subscribedTables = useMemo(
     () => SUBSCRIPTION_TABLES.filter((t) => subscribedIds.has(t.id)),
@@ -904,22 +1193,40 @@ export default function SubscriptionPage() {
   }
 
   return (
-    <div className="h-full min-w-0 flex-1 overflow-y-auto bg-neutral-50 pt-10 px-10 pb-10">
-      <div className="mx-auto flex h-[822px] max-h-[calc(100vh-80px)] w-[925px] flex-col overflow-hidden rounded-xl border bg-white shadow-sm">
-        <div className="flex shrink-0 items-start justify-between border-b px-6 py-[18px]">
-          <div className="space-y-0.5">
-            <h2 className="text-xl leading-6 font-semibold text-foreground">
-              Subscription
-            </h2>
-            <p className="text-xs leading-4 text-neutral-600">
-              All your data source subscriptions
-            </p>
-          </div>
-          <GetEmbedCodeDialog subscribedTables={subscribedTables} />
+    <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-white">
+      <Tabs value={mainTab} onValueChange={setMainTab} className="flex min-h-0 flex-1 flex-col gap-0">
+        <div className="w-full shrink-0 border-b pt-4 pr-6 pl-[20px]">
+          <TabsList variant="line" className="justify-start gap-1">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="subscription">Subscription</TabsTrigger>
+          </TabsList>
         </div>
 
-        <div className="flex min-h-0 flex-1 items-stretch">
-          <div className="flex min-h-0 w-[560px] shrink-0 flex-col gap-4 px-6 pt-5 pb-6">
+        <TabsContent value="overview" className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#FCFCFC]">
+          <div className="shrink-0 space-y-0.5 border-b bg-white px-6 py-[18px]">
+            <h2 className="text-xl leading-6 font-semibold text-foreground">Overview</h2>
+            <p className="text-xs leading-4 text-neutral-600">
+              Admin summary of subscriptions across users and applications
+            </p>
+          </div>
+          <SubscriptionOverviewTab />
+        </TabsContent>
+
+        <TabsContent value="subscription" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="flex shrink-0 items-start justify-between border-b px-6 py-[18px]">
+            <div className="space-y-0.5">
+              <h2 className="text-xl leading-6 font-semibold text-foreground">
+                Subscription
+              </h2>
+              <p className="text-xs leading-4 text-neutral-600">
+                All your data source subscriptions
+              </p>
+            </div>
+            <GetEmbedCodeDialog subscribedTables={subscribedTables} />
+          </div>
+
+          <div className="flex min-h-0 flex-1 items-stretch overflow-hidden">
+          <div className="flex min-h-0 min-w-0 flex-[7] flex-col gap-4 px-6 pt-5 pb-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-4">
                 <Select value={appFilter} onValueChange={setAppFilter}>
@@ -945,6 +1252,34 @@ export default function SubscriptionPage() {
                     {CATEGORIES.map((c) => (
                       <SelectItem key={c} value={c}>
                         {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={hostFilter} onValueChange={setHostFilter}>
+                  <SelectTrigger className="h-9 w-fit gap-2">
+                    <span className="text-muted-foreground">IP Host / Host Name:</span>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {HOST_OPTIONS.map((h) => (
+                      <SelectItem key={h} value={h}>
+                        {h}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={layerFilter} onValueChange={setLayerFilter}>
+                  <SelectTrigger className="h-9 w-fit gap-2">
+                    <span className="text-muted-foreground">Layer ID:</span>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LAYER_ID_OPTIONS.map((l) => (
+                      <SelectItem key={l} value={l}>
+                        {l}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1024,7 +1359,7 @@ export default function SubscriptionPage() {
             </div>
           </div>
 
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 border-l px-6 pt-5 pb-6">
+          <div className="flex min-h-0 min-w-0 flex-[3] flex-col gap-2 border-l px-6 pt-5 pb-6">
             <div className="shrink-0 space-y-0.5">
               <p className="text-lg font-medium text-foreground">
                 Subscribed table names
@@ -1053,8 +1388,9 @@ export default function SubscriptionPage() {
               )}
             </div>
           </div>
-        </div>
-      </div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

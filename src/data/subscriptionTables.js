@@ -5,6 +5,20 @@ import { XCircle, AlertTriangle, CheckCircle2, ShieldCheck } from "lucide-react"
 export const APPLICATIONS = ["ALL", "NDM", "IPDM", "ACS AXIOS"]
 export const CATEGORIES = ["ALL", "RAN", "FMC", "CORE PS", "TRANSPORT RAN"]
 
+// Host/layer aren't real infra data — they're mocked per row (cycled
+// deterministically by id) so the new filters have something to narrow down.
+const HOSTS = ["10.21.4.11", "10.21.4.12", "10.21.4.13", "10.21.4.14"]
+export const HOST_OPTIONS = ["ALL", ...HOSTS]
+function inferHost(id) {
+  return HOSTS[(id - 1) % HOSTS.length]
+}
+
+const LAYER_IDS = ["L900", "L1800", "L2100", "L2300", "L26000"]
+export const LAYER_ID_OPTIONS = ["ALL", ...LAYER_IDS]
+function inferLayerId(id) {
+  return LAYER_IDS[(id - 1) % LAYER_IDS.length]
+}
+
 // Granularity isn't stored explicitly per row — it's inferred from the
 // table name's daily/hourly suffix, falling back to "others".
 function inferGranularity(name) {
@@ -60,6 +74,8 @@ export const SUBSCRIPTION_TABLES = RAW_SUBSCRIPTION_TABLES.map((table) => ({
   ...table,
   schema: "public",
   granularity: inferGranularity(table.name),
+  host: inferHost(table.id),
+  layerId: inferLayerId(table.id),
 }))
 
 export const INITIAL_SUBSCRIBED_IDS = [1, 2]

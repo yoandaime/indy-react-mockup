@@ -21,7 +21,7 @@ const MENUS = [
     path: "/enrich-data/register",
   },
   {
-    title: "Subscription",
+    title: "Customer Data Ops",
     description: "Browse and manage your data source table subscriptions.",
     icon: Rss,
     path: "/subscription",

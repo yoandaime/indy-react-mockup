@@ -38,7 +38,7 @@ const MENU_ITEMS = [
   { key: "ticketing", label: "Insiden Management", icon: Ticket, path: "/ticketing" },
   { key: "data-observability", label: "Data Observability", icon: Eye, path: "/data-observability" },
   { key: "enrich-data", label: "Enrich Data", icon: FilePlus2, path: "/enrich-data/admin" },
-  { key: "subscription", label: "Subscription", icon: Rss, path: "/subscription" },
+  { key: "subscription", label: "Customer Data Ops", icon: Rss, path: "/subscription" },
   { key: "catalog-knowledge", label: "Catalog Knowledge", icon: BookOpen, path: "/catalog-knowledge" },
   { key: "indy-assistant", label: "INDY Assistant", icon: Sparkle, path: "/indy-assistant" },
 ]
