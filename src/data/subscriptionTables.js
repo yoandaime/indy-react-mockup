@@ -5,7 +5,15 @@ import { XCircle, AlertTriangle, CheckCircle2, ShieldCheck } from "lucide-react"
 export const APPLICATIONS = ["ALL", "NDM", "IPDM", "ACS AXIOS"]
 export const CATEGORIES = ["ALL", "RAN", "FMC", "CORE PS", "TRANSPORT RAN"]
 
-export const SUBSCRIPTION_TABLES = [
+// Granularity isn't stored explicitly per row — it's inferred from the
+// table name's daily/hourly suffix, falling back to "others".
+function inferGranularity(name) {
+  if (name.includes("_hour")) return "hourly"
+  if (name.includes("_day")) return "daily"
+  return "others"
+}
+
+const RAW_SUBSCRIPTION_TABLES = [
   { id: 1, name: "ran_cell_day_5g", app: "NDM", category: "RAN" },
   { id: 2, name: "ran_cell_day_2g", app: "NDM", category: "RAN" },
   { id: 3, name: "ran_sector_carrier_hour", app: "NDM", category: "RAN" },
@@ -47,6 +55,12 @@ export const SUBSCRIPTION_TABLES = [
   { id: 39, name: "acs_core_ps_latency_daily", app: "ACS AXIOS", category: "CORE PS" },
   { id: 40, name: "acs_transport_utilization_daily", app: "ACS AXIOS", category: "TRANSPORT RAN" },
 ]
+
+export const SUBSCRIPTION_TABLES = RAW_SUBSCRIPTION_TABLES.map((table) => ({
+  ...table,
+  schema: "public",
+  granularity: inferGranularity(table.name),
+}))
 
 export const INITIAL_SUBSCRIBED_IDS = [1, 2]
 

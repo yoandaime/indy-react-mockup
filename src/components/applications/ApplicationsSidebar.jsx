@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils"
 
 export default function ApplicationsSidebar({ apps, activeKey, onSelect, onCollapse }) {
   return (
-    <aside className="flex h-full w-[240px] shrink-0 flex-col gap-4 border-r border-neutral-200 bg-white p-4">
+    <aside className="flex h-full w-[200px] shrink-0 flex-col gap-4 border-r border-neutral-200 bg-white p-4">
       <div className="flex w-full items-center justify-between">
         <p className="px-1 text-sm font-semibold text-foreground">Applications</p>
         <button
@@ -16,7 +16,7 @@ export default function ApplicationsSidebar({ apps, activeKey, onSelect, onColla
         </button>
       </div>
 
-      <div className="flex w-full flex-col items-start gap-0.5">
+      <div className="flex w-full flex-col gap-0.5">
         {apps.map((app) => {
           const isActive = app.key === activeKey
           return (
@@ -25,11 +25,11 @@ export default function ApplicationsSidebar({ apps, activeKey, onSelect, onColla
               type="button"
               onClick={() => onSelect(app.key)}
               className={cn(
-                "flex h-9 w-full items-center gap-2.5 rounded-md px-3 py-1 text-left text-sm text-neutral-600 hover:bg-neutral-100",
-                isActive && "bg-[#fdecee] font-medium text-primary hover:bg-[#fdecee]"
+                "flex h-8 items-center gap-2 rounded-md px-2 text-left text-sm text-neutral-700 hover:bg-muted",
+                isActive && "bg-[#fdecee] text-primary hover:bg-[#fdecee]"
               )}
             >
-              <span className="min-w-0 flex-1 truncate">{app.title}</span>
+              <span className="truncate">{app.title}</span>
             </button>
           )
         })}

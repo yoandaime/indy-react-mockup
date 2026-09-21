@@ -745,6 +745,62 @@ export const TICKET_AI_INSIGHTS = {
       similarity: 71,
       note: "No open duplicate found. Closest match is NDQR20260718058 (closed) — same table, different trigger.",
     },
+    duplicateDetection: {
+      resolutionStatus: "recurring_resolved",
+      similarityThreshold: 0.6,
+      similarTickets: [
+        {
+          code: "NDQR20260718058",
+          similarity: 0.71,
+          matchedCriteria: {
+            table: { matched: true, sharedTables: ["default.icdm_icbw_cr"] },
+            category: { matched: true, value: "NDM AL" },
+            dimension: { matched: true, value: "Completeness" },
+            period: { matched: false, value: null },
+          },
+          resolved: true,
+          resolutionNote: "Re-applied CDC lag guard after extractor config rollback.",
+          llmVerification: {
+            verdict: "agree",
+            confidence: 80,
+            note: "Same table and dimension, same closed resolution path.",
+          },
+        },
+        {
+          code: "NDQR20260502031",
+          similarity: 0.64,
+          matchedCriteria: {
+            table: { matched: true, sharedTables: ["default.icdm_icbw_cr"] },
+            category: { matched: true, value: "NDM AL" },
+            dimension: { matched: true, value: "Completeness" },
+            period: { matched: false, value: null },
+          },
+          resolved: true,
+          resolutionNote: "Fixed with a manual backfill during a source maintenance window.",
+          llmVerification: {
+            verdict: "agree",
+            confidence: 75,
+            note: "Both incidents trace back to the same partition-closure gap.",
+          },
+        },
+      ],
+      narrative:
+        "Two closed tickets share this table and dimension, both resolved by re-applying the CDC lag guard or a manual backfill — the same fix is likely to work again.",
+    },
+    clustering: {
+      found: true,
+      relatedTickets: [
+        { code: "NDQR20260320014", description: "Same table flagged incomplete after a CDC lag spike." },
+        { code: "NDQR20260502031", description: "Partition closed early during a source maintenance window." },
+      ],
+      sharedSignals: {
+        tables: ["default.icdm_icbw_cr"],
+        problemTypes: ["Completeness"],
+      },
+      confidence: 82,
+      narrative:
+        "This ticket clusters with two prior incidents on the same table, all driven by CDC lag around the Thursday batch cycle. Worth checking the upstream extractor before treating this as a new root cause.",
+    },
     recommendedAction:
       "Re-apply the CDC lag guard used in NDQR20260718058 and add row-count reconciliation before the partition is marked complete. Based on history, expect a 5-9h resolution time.",
   },
@@ -772,6 +828,38 @@ export const TICKET_AI_INSIGHTS = {
       similarity: 93,
       note: "93% similar to NDQR20260514019 (closed) — same root cause, fix from that ticket was never made permanent.",
     },
+    duplicateDetection: {
+      resolutionStatus: "recurring_unresolved",
+      similarityThreshold: 0.6,
+      similarTickets: [
+        {
+          code: "NDQR20260514019",
+          similarity: 0.93,
+          matchedCriteria: {
+            table: { matched: true, sharedTables: ["core_cs_nokia"] },
+            category: { matched: true, value: "CORE CS" },
+            dimension: { matched: true, value: "Uniqueness" },
+            period: { matched: false, value: null },
+          },
+          resolved: true,
+          resolutionNote: "Deduped manually; idempotency fix was never made permanent.",
+          llmVerification: {
+            verdict: "agree",
+            confidence: 90,
+            note: "Same table, same trigger (retry without idempotency key), fix never landed.",
+          },
+        },
+      ],
+      narrative:
+        "93% match to a ticket closed two months ago with the same root cause. The manual dedup used there was never turned into a permanent fix, which is why this recurred.",
+    },
+    clustering: {
+      found: false,
+      relatedTickets: [],
+      sharedSignals: { tables: [], problemTypes: [] },
+      confidence: 0,
+      narrative: "No other open tickets share this table or problem type right now — this looks isolated.",
+    },
     recommendedAction:
       "Add an idempotency key to the ingest job's retry path so this doesn't recur a third time. Previous fix was manual dedup only.",
   },
@@ -789,6 +877,19 @@ const DEFAULT_AI_INSIGHT = {
   },
   pastIncidents: [],
   duplicate: { isDuplicate: false, relatedTicketId: null, similarity: 0, note: "No similar tickets found in the last 90 days." },
+  duplicateDetection: {
+    resolutionStatus: "no_match",
+    similarityThreshold: 0.6,
+    similarTickets: [],
+    narrative: "No similar tickets found in the last 90 days.",
+  },
+  clustering: {
+    found: false,
+    relatedTickets: [],
+    sharedSignals: { tables: [], problemTypes: [] },
+    confidence: 0,
+    narrative: "This is the first reported incident on this table — no recurring pattern detected yet.",
+  },
   recommendedAction: "Assign a PIC to investigate the root cause directly; no prior playbook exists for this table yet.",
 }
 

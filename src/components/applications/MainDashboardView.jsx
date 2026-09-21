@@ -19,7 +19,7 @@ import {
   TableCell,
 } from "@/components/ui/table"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
-import MiniLineChart from "@/components/applications/MiniLineChart"
+import TrendAreaChart from "@/components/applications/TrendAreaChart"
 import {
   GRANULARITIES,
   LAYERS,
@@ -43,10 +43,10 @@ function InfoHint({ children }) {
   )
 }
 
-function ScoreCell({ value }) {
+function ScoreCell({ value, isLast = false }) {
   const { bg, text } = tierForScore(value)
   return (
-    <TableCell className="p-0">
+    <TableCell className={`border-neutral-200 p-0 ${isLast ? "" : "border-r"}`}>
       <div className={`px-4 py-2.5 text-sm font-medium ${bg} ${text}`}>{value.toFixed(2)}%</div>
     </TableCell>
   )
@@ -54,32 +54,34 @@ function ScoreCell({ value }) {
 
 function DimensionSection({ title, tooltip, extra, rows, selected, onSelect, nameLabel }) {
   return (
-    <div className="flex-1 space-y-3 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+    <div className="flex-1 space-y-3">
       <div className="flex items-center gap-1.5">
         <p className="text-base font-semibold text-foreground">{title}</p>
         {extra}
         <InfoHint>{tooltip}</InfoHint>
       </div>
-      <div className="overflow-hidden rounded-lg border">
+      <div className="overflow-hidden rounded-lg border border-neutral-200">
         <RadioGroup value={selected} onValueChange={onSelect}>
           <Table>
             <TableHeader>
               <TableRow className="bg-neutral-50 hover:bg-neutral-50">
-                <TableHead className="w-10">Data Display</TableHead>
-                <TableHead>{nameLabel}</TableHead>
-                <TableHead>Completeness</TableHead>
+                <TableHead className="w-10 border-r border-neutral-200">Data Display</TableHead>
+                <TableHead className="border-r border-neutral-200">{nameLabel}</TableHead>
+                <TableHead className="border-r border-neutral-200">Completeness</TableHead>
                 <TableHead>Timeliness</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((row) => (
-                <TableRow key={row.key}>
-                  <TableCell>
+                <TableRow key={row.key} className="border-neutral-200">
+                  <TableCell className="border-r border-neutral-200">
                     <RadioGroupItem value={row.key} />
                   </TableCell>
-                  <TableCell className="font-medium">{row.name}</TableCell>
+                  <TableCell className="border-r border-neutral-200 font-medium">
+                    {row.name}
+                  </TableCell>
                   <ScoreCell value={row.completeness} />
-                  <ScoreCell value={row.timeliness} />
+                  <ScoreCell value={row.timeliness} isLast />
                 </TableRow>
               ))}
             </TableBody>
@@ -94,11 +96,11 @@ function TrendCard({ title, dimension, onDimensionChange, seedKey }) {
   const series = getTrendSeries(seedKey, dimension)
 
   return (
-    <div className="flex-1 space-y-3 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+    <div className="flex-1 space-y-3">
       <div className="flex items-center justify-between gap-3">
         <p className="text-base font-semibold text-foreground">{title}</p>
         <Select value={dimension} onValueChange={onDimensionChange}>
-          <SelectTrigger className="h-8 w-fit gap-2 border-primary text-primary">
+          <SelectTrigger className="h-8 w-fit gap-2 border-primary bg-[#FEF6F7] text-foreground hover:bg-[#FEF6F7] hover:text-foreground [&_svg]:text-foreground">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -110,11 +112,7 @@ function TrendCard({ title, dimension, onDimensionChange, seedKey }) {
           </SelectContent>
         </Select>
       </div>
-      <div className="flex items-center gap-1.5 text-xs text-neutral-500">
-        <span className="h-px w-3 bg-[#172554]" />
-        Rate
-      </div>
-      <MiniLineChart data={series} labels={TREND_DATES} />
+      <TrendAreaChart data={series} labels={TREND_DATES} />
     </div>
   )
 }
@@ -151,8 +149,12 @@ export default function MainDashboardView() {
         <p className="text-sm font-medium text-neutral-400">Dimensional View</p>
         <Tabs value={viewMode} onValueChange={setViewMode}>
           <TabsList>
-            <TabsTrigger value="single">Single</TabsTrigger>
-            <TabsTrigger value="multiple">Multiple</TabsTrigger>
+            <TabsTrigger value="single" className="w-[104px] flex-none">
+              Single
+            </TabsTrigger>
+            <TabsTrigger value="multiple" className="w-[104px] flex-none">
+              Multiple
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -193,7 +195,7 @@ export default function MainDashboardView() {
               size="sm"
               className={
                 date === activeDate
-                  ? "border-primary text-primary hover:text-primary"
+                  ? "border-primary bg-[#FEF6F7] text-foreground hover:bg-[#FEF6F7] hover:text-foreground"
                   : "text-foreground"
               }
               onClick={() => setActiveDate(date)}
@@ -218,8 +220,8 @@ export default function MainDashboardView() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-6 p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
+      <div className="flex flex-col bg-white">
+        <div className="flex flex-col gap-6 p-6 lg:flex-row lg:items-stretch">
           <DimensionSection
             title="Application"
             tooltip="Data quality scores per application."
@@ -236,7 +238,7 @@ export default function MainDashboardView() {
           />
         </div>
 
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
+        <div className="flex flex-col gap-6 p-6 lg:flex-row lg:items-stretch">
           <DimensionSection
             title="Category Data"
             tooltip="Data quality scores per category, within the selected layer."

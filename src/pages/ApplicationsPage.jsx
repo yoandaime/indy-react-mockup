@@ -9,7 +9,7 @@ import customReportIcon from "@/assets/application-icons/kind=custom report.png"
 import botIcon from "@/assets/application-icons/kind=bot.png"
 import { cn } from "@/lib/utils"
 
-const SIDEBAR_WIDTH = 240
+const SIDEBAR_WIDTH = 200
 const RAIL_WIDTH = 52
 
 const APPLICATIONS = [

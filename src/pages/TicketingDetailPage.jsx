@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
@@ -56,6 +57,16 @@ import { cn } from "@/lib/utils"
 
 const CATEGORY_OPTIONS = DEFAULT_CATEGORIES.map((c) => c.name)
 
+// Filter pills for the INDY Assistant insight card — sizing/spacing match
+// Figma node 445:18701 (Container ndq-with-shadcn).
+const INSIGHT_CATEGORIES = [
+  { key: "summary", label: "Summary" },
+  { key: "rootCause", label: "Root Cause Analysis" },
+  { key: "duplicate", label: "Duplicate / Similar Incident" },
+  { key: "clustering", label: "Related Incidents" },
+  { key: "recommendedAction", label: "Recommended Action" },
+]
+
 const SUMMARY_TEXT_CLASS = {
   overdue: "text-red-700",
   missed: "text-red-700",
@@ -72,6 +83,22 @@ function formatDateTime(iso) {
     hour: "2-digit",
     minute: "2-digit",
   })
+}
+
+function MatchedCriteriaBadges({ matchedCriteria }) {
+  if (!matchedCriteria) return null
+  const entries = Object.entries(matchedCriteria).filter(([, info]) => info?.matched)
+  if (entries.length === 0) return null
+
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {entries.map(([key, info]) => (
+        <Badge key={key} variant="secondary" className="text-[11px] font-normal text-violet-800">
+          {key === "table" ? info.sharedTables?.[0] ?? "table" : info.value ?? key}
+        </Badge>
+      ))}
+    </div>
+  )
 }
 
 function DetailRow({ label, align = "center", children }) {
@@ -189,6 +216,7 @@ export default function TicketingDetailPage() {
   const [duplicateOpen, setDuplicateOpen] = useState(false)
   const [updateOpen, setUpdateOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("discussion")
+  const [activeInsightCategory, setActiveInsightCategory] = useState("summary")
   const [showAudit, setShowAudit] = useState(true)
   const [replyText, setReplyText] = useState("")
   const [replyImage, setReplyImage] = useState(null)
@@ -587,76 +615,133 @@ export default function TicketingDetailPage() {
             </div>
           )}
 
-          <IndyAssistantAlert>
-            <p>
-              {insight.duplicate.isDuplicate ? (
-                <>
-                  Kemungkinan <strong>duplikat</strong> dari tiket{" "}
-                  <strong>{insight.duplicate.relatedTicketId}</strong> ({insight.duplicate.similarity}% mirip).
-                </>
-              ) : (
-                <>
-                  Ini kemunculan ke-<strong>{insight.occurrenceCount}</strong> untuk tabel{" "}
-                  <strong>{ticket.tableName}</strong>
-                  {insight.lastOccurred && (
-                    <>
-                      , terakhir terjadi pada <strong>{insight.lastOccurred}</strong>
-                    </>
-                  )}
-                  . {insight.pattern}
-                </>
-              )}
-            </p>
+          <IndyAssistantAlert
+            categories={INSIGHT_CATEGORIES}
+            activeCategory={activeInsightCategory}
+            onCategoryChange={setActiveInsightCategory}
+          >
+            {activeInsightCategory === "summary" && (
+              <p>
+                {insight.duplicate.isDuplicate ? (
+                  <>
+                    Kemungkinan <strong>duplikat</strong> dari tiket{" "}
+                    <strong>{insight.duplicate.relatedTicketId}</strong> ({insight.duplicate.similarity}% mirip).
+                  </>
+                ) : (
+                  <>
+                    Ini kemunculan ke-<strong>{insight.occurrenceCount}</strong> untuk tabel{" "}
+                    <strong>{ticket.tableName}</strong>
+                    {insight.lastOccurred && (
+                      <>
+                        , terakhir terjadi pada <strong>{insight.lastOccurred}</strong>
+                      </>
+                    )}
+                    . {insight.pattern}
+                  </>
+                )}
+              </p>
+            )}
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-1">
-                <p className="text-xs font-semibold tracking-wide text-violet-800 uppercase">
-                  Root Cause Analysis{" "}
-                  <span className="font-normal normal-case text-violet-600">
-                    ({insight.rootCause.confidence}% confidence)
-                  </span>
-                </p>
-                <p>{insight.rootCause.primary}</p>
-                {insight.rootCause.contributingFactors.length > 0 && (
-                  <ul className="list-disc space-y-0.5 pl-4">
-                    {insight.rootCause.contributingFactors.map((factor) => (
-                      <li key={factor}>{factor}</li>
+            {activeInsightCategory === "rootCause" && (
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold tracking-wide text-violet-800 uppercase">
+                    Root Cause Analysis{" "}
+                    <span className="font-normal normal-case text-violet-600">
+                      ({insight.rootCause.confidence}% confidence)
+                    </span>
+                  </p>
+                  <p>{insight.rootCause.primary}</p>
+                  {insight.rootCause.contributingFactors.length > 0 && (
+                    <ul className="list-disc space-y-0.5 pl-4">
+                      {insight.rootCause.contributingFactors.map((factor) => (
+                        <li key={factor}>{factor}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {insight.pastIncidents.length > 0 && (
+                  <div className="space-y-1 border-t border-violet-200 pt-2">
+                    <p className="text-xs font-semibold tracking-wide text-violet-800 uppercase">
+                      Past Occurrences
+                    </p>
+                    <ul className="space-y-1">
+                      {insight.pastIncidents.map((past) => (
+                        <li key={past.id} className="flex flex-wrap items-baseline gap-x-1.5">
+                          <span className="font-medium text-violet-800">{past.id}</span>
+                          <span className="text-violet-600">· {past.date} · resolved in {past.resolutionTime}</span>
+                          <span className="basis-full text-violet-950 sm:basis-auto">— {past.summary}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeInsightCategory === "duplicate" && (
+              <div className="space-y-2">
+                <p>{insight.duplicateDetection?.narrative ?? insight.duplicate.note}</p>
+                {insight.duplicateDetection?.similarTickets?.length > 0 && (
+                  <ul className="space-y-2">
+                    {insight.duplicateDetection.similarTickets.map((similar) => (
+                      <li key={similar.code} className="space-y-1 rounded-md border border-violet-200 bg-white/60 p-2">
+                        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                          <span className="font-medium text-violet-800">{similar.code}</span>
+                          <span className="text-violet-600">· {Math.round(similar.similarity * 100)}% similar</span>
+                          <Badge variant={similar.resolved ? "secondary" : "outline"} className="text-[11px] font-normal">
+                            {similar.resolved ? "Resolved" : "Open"}
+                          </Badge>
+                        </div>
+                        <MatchedCriteriaBadges matchedCriteria={similar.matchedCriteria} />
+                        {similar.resolutionNote && (
+                          <p className="text-violet-950">{similar.resolutionNote}</p>
+                        )}
+                        {similar.llmVerification && (
+                          <p className="text-xs text-violet-600 italic">
+                            LLM verification ({similar.llmVerification.confidence}% confidence): {similar.llmVerification.note}
+                          </p>
+                        )}
+                      </li>
                     ))}
                   </ul>
                 )}
               </div>
+            )}
 
-              <div className="space-y-1">
-                <p className="text-xs font-semibold tracking-wide text-violet-800 uppercase">
-                  Duplicate / Similar Incident Detection
-                </p>
-                <p>{insight.duplicate.note}</p>
-              </div>
-            </div>
-
-            {insight.pastIncidents.length > 0 && (
-              <div className="space-y-1">
-                <p className="text-xs font-semibold tracking-wide text-violet-800 uppercase">
-                  Past Occurrences
-                </p>
-                <ul className="space-y-1">
-                  {insight.pastIncidents.map((past) => (
-                    <li key={past.id} className="flex flex-wrap items-baseline gap-x-1.5">
-                      <span className="font-medium text-violet-800">{past.id}</span>
-                      <span className="text-violet-600">· {past.date} · resolved in {past.resolutionTime}</span>
-                      <span className="basis-full text-violet-950 sm:basis-auto">— {past.summary}</span>
-                    </li>
-                  ))}
-                </ul>
+            {activeInsightCategory === "clustering" && (
+              <div className="space-y-2">
+                <p>{insight.clustering?.narrative}</p>
+                {insight.clustering?.found && (
+                  <>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-violet-600">
+                      <span>{insight.clustering.confidence}% confidence</span>
+                      {insight.clustering.sharedSignals.tables.length > 0 && (
+                        <span>Shared tables: {insight.clustering.sharedSignals.tables.join(", ")}</span>
+                      )}
+                      {insight.clustering.sharedSignals.problemTypes.length > 0 && (
+                        <span>Problem types: {insight.clustering.sharedSignals.problemTypes.join(", ")}</span>
+                      )}
+                    </div>
+                    {insight.clustering.relatedTickets.length > 0 && (
+                      <ul className="space-y-1">
+                        {insight.clustering.relatedTickets.map((related) => (
+                          <li key={related.code} className="flex flex-wrap items-baseline gap-x-1.5">
+                            <span className="font-medium text-violet-800">{related.code}</span>
+                            <span className="basis-full text-violet-950 sm:basis-auto">— {related.description}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                )}
               </div>
             )}
 
-            <div className="space-y-1 border-t border-violet-200 pt-2">
-              <p className="text-xs font-semibold tracking-wide text-violet-800 uppercase">
-                Recommended Action
-              </p>
+            {activeInsightCategory === "recommendedAction" && (
               <p>{insight.recommendedAction}</p>
-            </div>
+            )}
           </IndyAssistantAlert>
 
           <div className="flex w-full flex-col gap-4.5 bg-white">

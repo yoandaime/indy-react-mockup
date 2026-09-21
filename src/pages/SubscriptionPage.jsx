@@ -139,12 +139,21 @@ function SearchField({ value, onChange, placeholder = "Search..." }) {
   )
 }
 
-function TagRow({ app, category }) {
+function TagRow({ app, category, schema, granularity }) {
   return (
-    <div className="flex items-center gap-2 text-xs text-[#525252]">
-      <span>{app}</span>
-      <span className="size-[5px] shrink-0 rounded-full bg-[#e5e5e5]" />
-      <span>{category}</span>
+    <div className="flex flex-col gap-0.5">
+      <div className="flex items-center gap-2 text-xs text-[#525252]">
+        <span>{app}</span>
+        <span className="size-[5px] shrink-0 rounded-full bg-[#e5e5e5]" />
+        <span>{category}</span>
+      </div>
+      {(schema || granularity) && (
+        <p className="text-xs text-muted-foreground">
+          {schema && <>Schema: {schema}</>}
+          {schema && granularity && " · "}
+          {granularity && <>Granularity: {granularity}</>}
+        </p>
+      )}
     </div>
   )
 }
@@ -170,8 +179,13 @@ function SubscribedTableRow({ table, justSaved }) {
       )}
     >
       <div className="flex flex-col items-start">
-        <p className="text-base font-medium text-foreground">{table.name}</p>
-        <TagRow app={table.app} category={table.category} />
+        <p className="text-[14px] font-medium text-foreground">{table.name}</p>
+        <TagRow
+          app={table.app}
+          category={table.category}
+          schema={table.schema}
+          granularity={table.granularity}
+        />
       </div>
     </div>
   )
@@ -251,12 +265,17 @@ function SubscriptionRow({ table, isSubscribed, isEditMode, isChecked, onToggleC
         />
         <div className="flex min-w-0 flex-1 flex-col items-start">
           <p
-            className="w-full truncate text-base leading-6 font-medium text-[#0a0a0a]"
+            className="w-full truncate text-[14px] leading-6 font-medium text-[#0a0a0a]"
             title={table.name}
           >
             {table.name}
           </p>
-          <TagRow app={table.app} category={table.category} />
+          <TagRow
+            app={table.app}
+            category={table.category}
+            schema={table.schema}
+            granularity={table.granularity}
+          />
         </div>
       </div>
       {isSubscribed && <SubscribedBadge />}
