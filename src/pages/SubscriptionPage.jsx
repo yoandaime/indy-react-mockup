@@ -13,7 +13,10 @@ import {
   Users,
   Rss,
   LayoutGrid,
+  LayoutDashboard,
   Table2,
+  Clock,
+  ChevronDown,
 } from "lucide-react"
 import {
   APPLICATIONS,
@@ -29,7 +32,17 @@ import {
   ADMIN_USERS,
   getAdminOverviewStats,
   getUserSubscribedTables,
+  getUserEmbedKey,
+  getUserKeyGeneratedMinutesAgo,
+  formatRelativeTime,
+  getTableSubscribers,
+  getPlatformActivityStats,
 } from "@/data/subscriptionAdminData"
+import PlatformActivitySummary from "@/components/subscription/PlatformActivitySummary"
+import UserDetailView from "@/components/subscription/UserDetailView"
+import DimensionBarChart from "@/components/subscription/DimensionBarChart"
+import { TagRow } from "@/components/subscription/shared"
+import { TAILWIND_SHADES } from "@/lib/chartColors"
 import { ticketAuthorInitials, ticketAuthorAvatarUrl } from "@/data/ticketingData"
 import indyLogo from "@/assets/indy-logo.svg"
 import extensionButtonLogo from "@/assets/Icon + Text Logo.png"
@@ -62,6 +75,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import {
   Pagination,
   PaginationContent,
@@ -158,26 +172,6 @@ function SearchField({ value, onChange, placeholder = "Search..." }) {
         className="h-auto min-h-0 min-w-0 flex-1 border-0 bg-transparent p-0 text-sm shadow-none focus-visible:border-0 focus-visible:ring-0"
       />
       <Search className="size-3.5 shrink-0 text-muted-foreground" />
-    </div>
-  )
-}
-
-function TagRow({ app, category, schema, granularity }) {
-  const parts = [
-    app,
-    category,
-    schema && `Schema: ${schema}`,
-    granularity && `Granularity: ${granularity}`,
-  ].filter(Boolean)
-
-  return (
-    <div className="flex flex-wrap items-center gap-2 text-xs text-[#525252]">
-      {parts.map((part, index) => (
-        <span key={part} className="flex items-center gap-2">
-          {index > 0 && <span className="size-[5px] shrink-0 rounded-full bg-[#e5e5e5]" />}
-          {part}
-        </span>
-      ))}
     </div>
   )
 }
@@ -813,33 +807,15 @@ function OverviewStatCard({ icon: Icon, label, value, sublabel }) {
   )
 }
 
-function TopBarRow({ label, count, max, barClassName }) {
-  const pct = max > 0 ? Math.round((count / max) * 100) : 0
-  return (
-    <div className="flex items-center gap-3">
-      <span className="w-32 shrink-0 truncate text-sm text-foreground" title={label}>
-        {label}
-      </span>
-      <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
-        <div className={cn("h-full rounded-full", barClassName)} style={{ width: `${pct}%` }} />
-      </div>
-      <span className="w-6 shrink-0 text-right text-sm text-muted-foreground">{count}</span>
-    </div>
-  )
-}
-
-function TopBarCard({ title, description, rows, barClassName }) {
-  const max = Math.max(...rows.map((r) => r.count), 1)
+function TopBarCard({ title, description, rows, color, labelWidth }) {
   return (
     <Card className="shadow-sm">
       <CardHeader>
         <CardTitle className="text-base">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {rows.map((row) => (
-          <TopBarRow key={row.label} label={row.label} count={row.count} max={max} barClassName={barClassName} />
-        ))}
+      <CardContent>
+        <DimensionBarChart rows={rows} color={color} labelWidth={labelWidth} />
       </CardContent>
     </Card>
   )
@@ -847,62 +823,48 @@ function TopBarCard({ title, description, rows, barClassName }) {
 
 const USER_SUBSCRIPTIONS_PAGE_SIZE = 10
 
-function UserSubscriptionAccordionItem({ user }) {
+function UserSubscriptionRow({ user, onSelect }) {
   const tables = useMemo(() => getUserSubscribedTables(user), [user])
-  const [search, setSearch] = useState("")
-
-  const filteredTables = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return tables
-    return tables.filter((table) => table.name.toLowerCase().includes(q))
-  }, [tables, search])
+  const embedKey = useMemo(() => getUserEmbedKey(user), [user])
+  const generatedMinutesAgo = useMemo(() => getUserKeyGeneratedMinutesAgo(user), [user])
 
   return (
-    <AccordionItem value={String(user.id)}>
-      <AccordionTrigger className="px-4 hover:no-underline">
-        <div className="flex flex-1 items-center justify-between pr-2">
-          <div className="flex items-center gap-2">
-            <Avatar className="size-7">
-              <AvatarImage src={ticketAuthorAvatarUrl(user.name)} alt={user.name} />
-              <AvatarFallback>{ticketAuthorInitials(user.name)}</AvatarFallback>
-            </Avatar>
-            <span className="font-medium text-foreground">{user.name}</span>
-          </div>
-          <Badge variant="secondary">{tables.length} subscriptions</Badge>
+    <TableRow className="cursor-pointer" onClick={() => onSelect(user)}>
+      <TableCell>
+        <div className="flex min-w-0 items-center gap-2">
+          <Avatar className="size-7 shrink-0">
+            <AvatarImage src={ticketAuthorAvatarUrl(user.name)} alt={user.name} />
+            <AvatarFallback>{ticketAuthorInitials(user.name)}</AvatarFallback>
+          </Avatar>
+          <span className="truncate font-medium text-foreground">{user.name}</span>
         </div>
-      </AccordionTrigger>
-      <AccordionContent className="px-4 pl-[52px]">
-        <div className="space-y-2 rounded-lg border bg-muted/20 p-3 shadow-xs">
-          <SearchField
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search table name..."
-          />
-          <div className="flex max-h-[240px] flex-col gap-2 overflow-y-auto">
-            {filteredTables.map((table) => (
-              <div key={table.id} className="border-b pb-1.5 last:border-b-0">
-                <p className="text-sm leading-tight font-medium text-foreground">{table.name}</p>
-                <TagRow
-                  app={table.app}
-                  category={table.category}
-                  schema={table.schema}
-                  granularity={table.granularity}
-                />
-              </div>
-            ))}
-            {filteredTables.length === 0 && (
-              <p className="py-3 text-center text-sm text-muted-foreground">
-                No tables match your search.
-              </p>
-            )}
-          </div>
-        </div>
-      </AccordionContent>
-    </AccordionItem>
+      </TableCell>
+      <TableCell className="truncate font-mono text-xs text-muted-foreground" title={embedKey}>
+        {embedKey}
+      </TableCell>
+      <TableCell className="text-xs text-muted-foreground">
+        {formatRelativeTime(generatedMinutesAgo)}
+      </TableCell>
+      <TableCell>
+        <Badge variant="secondary">{tables.length} subscriptions</Badge>
+      </TableCell>
+      <TableCell>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation()
+            onSelect(user)
+          }}
+        >
+          Detail
+        </Button>
+      </TableCell>
+    </TableRow>
   )
 }
 
-function UserSubscriptionsList({ users }) {
+function UserSubscriptionsList({ users, onSelectUser }) {
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
 
@@ -937,22 +899,236 @@ function UserSubscriptionsList({ users }) {
         />
       </div>
 
-      <div className="rounded-lg border">
-        <div className="flex items-center justify-between border-b bg-muted/40 px-4 py-2 text-sm font-medium text-foreground">
-          <span>User</span>
-          <span className="pr-2">Subscriptions</span>
-        </div>
-        {pageUsers.length > 0 ? (
-          <Accordion multiple>
+      <div className="overflow-hidden rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>User</TableHead>
+              <TableHead>Key</TableHead>
+              <TableHead>Generated time</TableHead>
+              <TableHead>Subscriptions</TableHead>
+              <TableHead>Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {pageUsers.map((user) => (
-              <UserSubscriptionAccordionItem key={user.id} user={user} />
+              <UserSubscriptionRow key={user.id} user={user} onSelect={onSelectUser} />
             ))}
-          </Accordion>
-        ) : (
-          <p className="px-4 py-6 text-center text-sm text-muted-foreground">
-            No users match your search.
+            {pageUsers.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="py-6 text-center text-sm text-muted-foreground">
+                  No users match your search.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {totalPages > 1 && (
+        <Pagination className="justify-between">
+          <p className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages}
           </p>
-        )}
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                href="#"
+                aria-disabled={currentPage === 1}
+                className={currentPage === 1 ? "pointer-events-none opacity-50" : undefined}
+                onClick={(e) => {
+                  e.preventDefault()
+                  setPage((p) => Math.max(1, p - 1))
+                }}
+              />
+            </PaginationItem>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              <PaginationItem key={p}>
+                <PaginationLink
+                  href="#"
+                  isActive={p === currentPage}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setPage(p)
+                  }}
+                >
+                  {p}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            <PaginationItem>
+              <PaginationNext
+                href="#"
+                aria-disabled={currentPage === totalPages}
+                className={currentPage === totalPages ? "pointer-events-none opacity-50" : undefined}
+                onClick={(e) => {
+                  e.preventDefault()
+                  setPage((p) => Math.min(totalPages, p + 1))
+                }}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
+    </div>
+  )
+}
+
+const TABLE_SUBSCRIPTIONS_PAGE_SIZE = 10
+
+function TableSubscriptionRow({ table, isExpanded, onToggle }) {
+  const subscribers = useMemo(() => getTableSubscribers(table.id), [table])
+  const [search, setSearch] = useState("")
+
+  const filteredSubscribers = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return subscribers
+    return subscribers.filter((user) => user.name.toLowerCase().includes(q))
+  }, [subscribers, search])
+
+  return (
+    <>
+      <TableRow className="cursor-pointer" onClick={() => onToggle(table.id)}>
+        <TableCell>
+          <div className="flex min-w-0 flex-col items-start gap-0.5">
+            <span className="truncate font-medium text-foreground" title={table.name}>
+              {table.name}
+            </span>
+            <TagRow
+              app={table.app}
+              category={table.category}
+              schema={table.schema}
+              granularity={table.granularity}
+            />
+          </div>
+        </TableCell>
+        <TableCell className="text-xs text-muted-foreground">{table.app}</TableCell>
+        <TableCell className="text-xs text-muted-foreground">{table.category}</TableCell>
+        <TableCell className="w-44">
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">{subscribers.length} subscribers</Badge>
+            <ChevronDown
+              className={cn(
+                "size-4 shrink-0 text-muted-foreground transition-transform",
+                isExpanded && "rotate-180"
+              )}
+            />
+          </div>
+        </TableCell>
+      </TableRow>
+      {isExpanded && (
+        <TableRow className="hover:bg-transparent">
+          <TableCell colSpan={4} className="bg-muted/20 p-0">
+            <div className="space-y-3 p-4">
+              <p className="text-sm font-semibold text-foreground">Subscribers</p>
+              <SearchField
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search user name..."
+              />
+              <div className="flex max-h-[240px] flex-col gap-2 overflow-y-auto">
+                {filteredSubscribers.map((user) => (
+                  <div key={user.id} className="flex items-center gap-2.5 border-b pb-2 last:border-b-0">
+                    <Avatar className="size-7 shrink-0">
+                      <AvatarImage src={ticketAuthorAvatarUrl(user.name)} alt={user.name} />
+                      <AvatarFallback>{ticketAuthorInitials(user.name)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
+                      <p className="text-xs text-muted-foreground">{user.role}</p>
+                    </div>
+                  </div>
+                ))}
+                {filteredSubscribers.length === 0 && (
+                  <p className="py-3 text-center text-sm text-muted-foreground">
+                    {subscribers.length === 0 ? "No subscribers yet." : "No subscribers match your search."}
+                  </p>
+                )}
+              </div>
+            </div>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
+  )
+}
+
+function TableSubscriptionsList({ tables }) {
+  const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const [expandedIds, setExpandedIds] = useState(() => new Set())
+
+  const toggleExpanded = (id) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  const filteredTables = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return tables
+    return tables.filter((table) => table.name.toLowerCase().includes(q))
+  }, [tables, search])
+
+  const totalPages = Math.max(1, Math.ceil(filteredTables.length / TABLE_SUBSCRIPTIONS_PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const pageTables = filteredTables.slice(
+    (currentPage - 1) * TABLE_SUBSCRIPTIONS_PAGE_SIZE,
+    currentPage * TABLE_SUBSCRIPTIONS_PAGE_SIZE
+  )
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <h3 className="text-base font-semibold text-foreground">Table Subscriptions</h3>
+        <p className="text-sm text-muted-foreground">Click a row to see who is subscribed to a table</p>
+      </div>
+
+      <div className="max-w-sm">
+        <SearchField
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setPage(1)
+          }}
+          placeholder="Search table name..."
+        />
+      </div>
+
+      <div className="overflow-hidden rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Table</TableHead>
+              <TableHead>Application</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead className="w-44">Subscribers</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {pageTables.map((table) => (
+              <TableSubscriptionRow
+                key={table.id}
+                table={table}
+                isExpanded={expandedIds.has(table.id)}
+                onToggle={toggleExpanded}
+              />
+            ))}
+            {pageTables.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={4} className="py-6 text-center text-sm text-muted-foreground">
+                  No tables match your search.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
 
       {totalPages > 1 && (
@@ -1006,9 +1182,15 @@ function UserSubscriptionsList({ users }) {
 
 function SubscriptionOverviewTab() {
   const stats = useMemo(() => getAdminOverviewStats(), [])
+  const activityStats = useMemo(() => getPlatformActivityStats(), [])
 
   return (
-    <div className="space-y-4 p-6">
+    <div className="flex-1 space-y-4 bg-[#FCFCFC] p-6">
+      <div>
+        <h3 className="text-base font-semibold text-foreground">Subscription Summary</h3>
+        <p className="text-sm text-muted-foreground">How users are subscribing to apps and tables</p>
+      </div>
+
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <OverviewStatCard
           icon={Users}
@@ -1041,23 +1223,30 @@ function SubscriptionOverviewTab() {
           title="Most apps subscribed"
           description="Top applications by number of subscriptions"
           rows={stats.topApps.map((row) => ({ label: row.app, count: row.count }))}
-          barClassName="bg-blue-600"
+          color={TAILWIND_SHADES.blue[2]}
         />
         <TopBarCard
           title="Most tables subscribed"
           description="Top tables by number of subscribers"
           rows={stats.topTables.map((row) => ({ label: row.table.name, count: row.count }))}
-          barClassName="bg-primary"
+          color={TAILWIND_SHADES.rose[3]}
+          labelWidth={140}
         />
       </div>
 
-      <UserSubscriptionsList users={ADMIN_USERS} />
+      <PlatformActivitySummary stats={activityStats} />
     </div>
   )
 }
 
 export default function SubscriptionPage() {
-  const [mainTab, setMainTab] = useState("overview")
+  const [mainTab, setMainTab] = useState("user-management")
+  const [userManagementTab, setUserManagementTab] = useState("overview")
+  const [selectedUserId, setSelectedUserId] = useState(null)
+  const selectedUser = useMemo(
+    () => ADMIN_USERS.find((user) => user.id === selectedUserId) ?? null,
+    [selectedUserId]
+  )
   const [appFilter, setAppFilter] = useState("ALL")
   const [categoryFilter, setCategoryFilter] = useState("ALL")
   const [hostFilter, setHostFilter] = useState("ALL")
@@ -1197,19 +1386,63 @@ export default function SubscriptionPage() {
       <Tabs value={mainTab} onValueChange={setMainTab} className="flex min-h-0 flex-1 flex-col gap-0">
         <div className="w-full shrink-0 border-b pt-4 pr-6 pl-[20px]">
           <TabsList variant="line" className="justify-start gap-1">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="user-management">User Management</TabsTrigger>
             <TabsTrigger value="subscription">Subscription</TabsTrigger>
           </TabsList>
         </div>
 
-        <TabsContent value="overview" className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#FCFCFC]">
-          <div className="shrink-0 space-y-0.5 border-b bg-white px-6 py-[18px]">
-            <h2 className="text-xl leading-6 font-semibold text-foreground">Overview</h2>
-            <p className="text-xs leading-4 text-neutral-600">
-              Admin summary of subscriptions across users and applications
-            </p>
-          </div>
-          <SubscriptionOverviewTab />
+        <TabsContent value="user-management" className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-white">
+          {selectedUser ? (
+            <div className="p-6">
+              <UserDetailView
+                key={selectedUser.id}
+                user={selectedUser}
+                onBack={() => setSelectedUserId(null)}
+              />
+            </div>
+          ) : (
+            <>
+              <div className="shrink-0 space-y-3 border-b bg-white px-6 py-[18px]">
+                <div className="space-y-0.5">
+                  <h2 className="text-xl leading-6 font-semibold text-foreground">User Management</h2>
+                  <p className="text-xs leading-4 text-neutral-600">
+                    Admin summary of users, their subscriptions, and subscribed tables
+                  </p>
+                </div>
+                <Tabs value={userManagementTab} onValueChange={setUserManagementTab}>
+                  <TabsList>
+                    <TabsTrigger value="overview">
+                      <LayoutDashboard />
+                      Overview
+                    </TabsTrigger>
+                    <TabsTrigger value="list-user">
+                      <Users />
+                      List User
+                    </TabsTrigger>
+                    <TabsTrigger value="list-table">
+                      <Table2 />
+                      List Table
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+
+              {userManagementTab === "overview" && <SubscriptionOverviewTab />}
+              {userManagementTab === "list-user" && (
+                <div className="p-6">
+                  <UserSubscriptionsList
+                    users={ADMIN_USERS}
+                    onSelectUser={(user) => setSelectedUserId(user.id)}
+                  />
+                </div>
+              )}
+              {userManagementTab === "list-table" && (
+                <div className="p-6">
+                  <TableSubscriptionsList tables={SUBSCRIPTION_TABLES} />
+                </div>
+              )}
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="subscription" className="flex min-h-0 flex-1 flex-col overflow-hidden">
