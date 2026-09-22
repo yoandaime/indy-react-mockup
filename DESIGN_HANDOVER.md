@@ -32,13 +32,7 @@ manggil API, itu belum beneran ada.
 - **Pendukung:** `src/components/ticketing/*` (18 komponen — badge, dialog,
   timeline, sidebar, category nav, dll)
 - **Mock data:** `src/data/ticketingData.js`, `src/data/picCategoryData.js`
-- **Catatan desain:** Area fitur paling gede dan paling matang — jadiin ini
-  referensi buat "seharusnya kayak apa sebuah bagian admin yang udah jadi"
-  (toggle grid/kanban/list, nested tabs, dialog, avatar stack).
-  `ManageUsersSection.jsx` contoh baku pemakaian komponen `Table` yang
-  bener (header/cell sejajar, kolom aksi, status pill) — tiru pola ini,
-  bukan pola CSS-grid `SubscriptionPage.jsx` versi awal (yang sekarang
-  udah diperbaiki).
+
 
 ### Data Observability — `/data-observability`
 
@@ -49,9 +43,6 @@ manggil API, itu belum beneran ada.
   Rule dialog)
 - **Mock data:** `src/data/dqComposerMockData.js`, logika rule catalog di
   `src/lib/dqComposer/`
-- **Catatan desain:** Workspace rule-builder / profiling. Pakai
-  `MultiSelect`, `Textarea`, `Label`, dan `Table` asli — referensi kedua
-  yang enak buat UI admin yang berat form, selain Ticketing.
 
 ### Enrich Data — `/enrich-data/admin` (+ `/enrich-data/register`)
 
@@ -61,12 +52,6 @@ manggil API, itu belum beneran ada.
   dari portal, **bukan** di balik sidebar layout)
 - **Mock data:** `src/data/adminConnections.js`,
   `src/data/enrichDataWizardMock.js`
-- **Catatan desain:** Cuma bagian ini yang pakai `ViewModeContext`
-  (`src/context/ViewModeContext.jsx` + `src/components/ViewModeBar.jsx`)
-  buat toggle view mode bar "admin" di bawah layout — jangan langsung tiru
-  pola ini ke bagian lain tanpa cek dulu apa memang perlu.
-  `RegisterDataPage.jsx` memang sengaja dibikin simpel bergaya "coming
-  soon" — bukan kelupaan, memang belum dibangun.
 
 ### Customer Data Ops — `/subscription`
 
@@ -81,19 +66,10 @@ manggil API, itu belum beneran ada.
 - **Mock data:** `src/data/subscriptionAdminData.js` (user, field profil,
   activity log, statistik platform activity), `src/data/subscriptionTables.js`
   (katalog table yang bisa disubscribe + tier dimensi DQ)
-- **Catatan desain:** Ini bagian yang paling baru diiterasi dan referensi
-  terbaik sekarang buat: pola nested-tabs, integrasi ECharts pakai helper
-  warna Tailwind, dan pola list dengan expandable-row berbasis `<Table>`
-  asli (`TableSubscriptionRow` di `SubscriptionPage.jsx`). Kalau kamu mau
-  bikin layar admin list+detail baru di bagian lain aplikasi, mulai dari
-  baca file ini sampai habis.
 
 ### Catalog Knowledge — `/catalog-knowledge`
 
 - **Entry:** `src/pages/CatalogKnowledgePage.jsx`
-- **Catatan desain:** Cuma placeholder (empty state "Under development").
-  Belum ada keputusan layout apa pun di sini — jangan nyimpulin konvensi
-  dari halaman ini.
 
 ### INDY Assistant — `/indy-assistant`
 
@@ -103,9 +79,6 @@ manggil API, itu belum beneran ada.
 - **Mock data:** `src/data/indyAssistantData.js` (termasuk
   `getMockAssistantReply` — generator respons kalengan, bukan pemanggilan
   model beneran)
-- **Catatan desain:** Layout gaya chat dengan sidebar history yang bisa
-  di-collapse sendiri (`IndyAssistantSidebar.jsx` — panel simpel 240px
-  dengan tombol collapse, nggak ada hubungannya sama rail hover-peek punya
-  `AppSidebar`).
+
 
 ---
