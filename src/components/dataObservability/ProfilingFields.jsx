@@ -13,8 +13,10 @@ export default function ProfilingFields({
   onInsertTimeColumnChange,
   uniqKeyColumns,
   onUniqKeyColumnsChange,
-  lookbackDays,
-  onLookbackDaysChange,
+  startDate,
+  onStartDateChange,
+  endDate,
+  onEndDateChange,
   onProfileTable,
 }) {
   const allColumnNames = describedTable ? describedTable.columns.map((c) => c.column) : []
@@ -41,9 +43,27 @@ export default function ProfilingFields({
         />
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="profile-lookback">Lookback Days</Label>
-        <Input id="profile-lookback" type="number" value={lookbackDays} onChange={(e) => onLookbackDaysChange(e.target.value)} />
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="profile-start-date">Start Date</Label>
+          <Input
+            id="profile-start-date"
+            type="date"
+            value={startDate}
+            max={endDate || undefined}
+            onChange={(e) => onStartDateChange(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="profile-end-date">End Date</Label>
+          <Input
+            id="profile-end-date"
+            type="date"
+            value={endDate}
+            min={startDate || undefined}
+            onChange={(e) => onEndDateChange(e.target.value)}
+          />
+        </div>
       </div>
 
       <Button type="button" className="w-full" onClick={onProfileTable}>

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 
 // Multi-select combobox built on the base-ui Combobox in `multiple` mode —
 // selected values render as removable chips inline with the search input.
-function MultiSelect({ id, value = [], onValueChange, options, placeholder, disabled, className }) {
+function MultiSelect({ id, value = [], onValueChange, options, placeholder, disabled, className, chipClassName }) {
   const chipsRef = React.useRef(null)
 
   return (
@@ -28,7 +28,10 @@ function MultiSelect({ id, value = [], onValueChange, options, placeholder, disa
         {value.map((item) => (
           <ComboboxPrimitive.Chip
             key={item}
-            className="flex items-center gap-1 rounded-md bg-accent px-1.5 py-0.5 text-xs font-medium text-accent-foreground"
+            className={cn(
+              "flex items-center gap-1 rounded-md bg-accent px-1.5 py-0.5 text-xs font-medium text-accent-foreground",
+              chipClassName?.(item)
+            )}
           >
             {item}
             <ComboboxPrimitive.ChipRemove

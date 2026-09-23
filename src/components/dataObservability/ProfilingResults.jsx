@@ -1,12 +1,21 @@
+import { CheckCircle2, Fingerprint, ShieldCheck, Clock, ArrowUp, ArrowDown, Minus, TriangleAlert } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
+import ProfileTrendChart from "@/components/dataObservability/ProfileTrendChart"
 
 const SEVERITY_STYLES = {
   CLEAN: "bg-emerald-100 text-emerald-700",
   WATCH: "bg-amber-100 text-amber-700",
   CRITICAL: "bg-red-100 text-red-700",
   ALWAYS_NULL: "bg-rose-200 text-rose-900",
+}
+
+const DIMENSION_META = {
+  completeness: { label: "Completeness", icon: CheckCircle2, unit: "COUNT_ROW" },
+  uniqueness: { label: "Uniqueness", icon: Fingerprint, unit: "UNIQUENESS_KEY" },
+  validity: { label: "Validity", icon: ShieldCheck, unit: "VALIDITY_COLUMN" },
+  timeliness: { label: "Timeliness", icon: Clock, unit: "TIMELINESS" },
 }
 
 function SeverityBadge({ severity }) {
@@ -29,11 +38,78 @@ function GapBadge({ isGap }) {
   )
 }
 
-function StatTile({ label, value }) {
+function InfoItem({ label, value }) {
   return (
-    <div className="flex-1 rounded-lg border border-neutral-200 bg-white p-4">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-foreground">{value}</p>
+    <div className="px-3 py-2.5">
+      <p className="text-[10px] font-medium tracking-wide text-muted-foreground">{label}</p>
+      <p className="truncate text-xs font-medium text-foreground" title={String(value)}>
+        {value}
+      </p>
+    </div>
+  )
+}
+
+function DeltaBadge({ delta }) {
+  if (delta === null || delta === undefined) return null
+  if (delta === 0) {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-xs font-medium text-muted-foreground">
+        <Minus className="size-3" />
+        0%
+      </span>
+    )
+  }
+  const isUp = delta > 0
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-0.5 text-xs font-medium",
+        isUp ? "text-emerald-600" : "text-red-600"
+      )}
+    >
+      {isUp ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
+      {Math.abs(delta)}%
+    </span>
+  )
+}
+
+function DimensionCard({ dimensionKey, value, delta }) {
+  const meta = DIMENSION_META[dimensionKey]
+  const Icon = meta.icon
+  const hasValue = value !== null && value !== undefined
+  const tier = !hasValue ? "unknown" : value >= 95 ? "good" : value >= 80 ? "watch" : "critical"
+
+  return (
+    <div
+      className={cn(
+        "flex-1 rounded-lg border bg-white p-4 shadow-sm",
+        tier === "critical" ? "border-red-200 ring-1 ring-red-100" : "border-neutral-200"
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <Icon className={cn("size-4", tier === "critical" ? "text-red-600" : "text-muted-foreground")} />
+          <p className="text-xs font-medium text-muted-foreground">{meta.label}</p>
+        </div>
+        {tier === "critical" && <TriangleAlert className="size-4 text-red-500" />}
+      </div>
+      <div className="mt-1 flex items-baseline gap-2">
+        <p className="text-2xl font-semibold text-foreground">{hasValue ? `${value}%` : "—"}</p>
+        <DeltaBadge delta={delta} />
+      </div>
+      <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-neutral-100">
+        <div
+          className={cn(
+            "h-full rounded-full",
+            tier === "good" && "bg-emerald-500",
+            tier === "watch" && "bg-amber-500",
+            tier === "critical" && "bg-red-500",
+            tier === "unknown" && "bg-neutral-300"
+          )}
+          style={{ width: hasValue ? `${Math.min(100, Math.max(0, value))}%` : "0%" }}
+        />
+      </div>
+      <p className="mt-2 text-[10px] tracking-wide text-muted-foreground uppercase">{meta.unit}</p>
     </div>
   )
 }
@@ -47,18 +123,37 @@ export default function ProfilingResults({ profile }) {
     )
   }
 
+  const sampleColumns = profile.sample.length ? Object.keys(profile.sample[0]) : []
+
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile label="Total Rows" value={profile.summary.total_rows} />
-        <StatTile label="Days w/ Data" value={`${profile.summary.days_with_data} / ${profile.summary.days_total}`} />
-        <StatTile label="Days w/ Gap" value={profile.summary.gap_days} />
-        <StatTile label="Days w/ Null" value={profile.summary.null_days} />
+      <div className="grid w-full shrink-0 grid-cols-4 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm [&>*]:border-r [&>*]:border-b [&>*]:border-neutral-200 [&>*:nth-child(4n)]:border-r-0 [&>*:nth-last-child(-n+4)]:border-b-0">
+        <InfoItem label="Table" value={profile.table} />
+        <InfoItem
+          label="Period / Insert"
+          value={`${profile.period}${profile.insertTimeColumn ? ` / ${profile.insertTimeColumn}` : ""}`}
+        />
+        <InfoItem label="Uniq Key" value={profile.uniqKeyColumns.length ? profile.uniqKeyColumns.join(", ") : "—"} />
+        <InfoItem label="Last Insert Query" value={profile.lastInsertQuery} />
+        <InfoItem label="Avg Rows" value={profile.summary.avg_rows} />
+        <InfoItem label="Days w/ Data" value={`${profile.summary.days_with_data} / ${profile.summary.days_total}`} />
+        <InfoItem label="Days w/ Gap" value={profile.summary.gap_days} />
+        <InfoItem label="Days w/ Null" value={profile.summary.null_days} />
+      </div>
+
+      <div className="grid w-full shrink-0 grid-cols-2 gap-3 sm:grid-cols-4">
+        {profile.dimensions.map((d) => (
+          <DimensionCard key={d.key} dimensionKey={d.key} value={d.value} delta={d.delta} />
+        ))}
+      </div>
+
+      <div className="w-full shrink-0 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
+        <ProfileTrendChart daily={profile.daily} />
       </div>
 
       <div className="flex w-full flex-col gap-2">
         <p className="text-sm font-medium text-foreground">Daily Table</p>
-        <div className="overflow-x-auto rounded-lg border border-neutral-200">
+        <div className="overflow-x-auto rounded-lg border border-neutral-200 shadow-sm">
           <Table>
             <TableHeader>
               <TableRow>
@@ -89,7 +184,7 @@ export default function ProfilingResults({ profile }) {
       {profile.keyCheckColumns.length > 0 && (
         <div className="flex w-full flex-col gap-2">
           <p className="text-sm font-medium text-foreground">Key Column Check</p>
-          <div className="overflow-x-auto rounded-lg border border-neutral-200">
+          <div className="overflow-x-auto rounded-lg border border-neutral-200 shadow-sm">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -132,15 +227,49 @@ export default function ProfilingResults({ profile }) {
       )}
 
       <div className="flex w-full flex-col gap-2">
-        <p className="text-sm font-medium text-foreground">Column null/empty profile ({profile.consistentNull.length} columns)</p>
-        <div className="overflow-x-auto rounded-lg border border-neutral-200">
+        <p className="text-sm font-medium text-foreground">Sample Data</p>
+        <div className="max-h-[320px] overflow-auto rounded-lg border border-neutral-200 shadow-sm">
           <Table>
-            <TableHeader>
+            <TableHeader className="sticky top-0 z-10">
+              <TableRow>
+                {sampleColumns.map((col) => (
+                  <TableHead key={col} className="whitespace-nowrap">
+                    {col}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {profile.sample.map((row, i) => (
+                <TableRow key={i}>
+                  {sampleColumns.map((col) => (
+                    <TableCell key={col} className="whitespace-nowrap">
+                      {row[col] === null || row[col] === undefined || row[col] === "" ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        String(row[col])
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+
+      <div className="flex w-full flex-col gap-2">
+        <p className="text-sm font-medium text-foreground">Column null/empty profile ({profile.consistentNull.length} columns)</p>
+        <div className="max-h-[360px] overflow-auto rounded-lg border border-neutral-200 shadow-sm">
+          <Table>
+            <TableHeader className="sticky top-0 z-10">
               <TableRow>
                 <TableHead>Column</TableHead>
                 <TableHead>Avg Null %</TableHead>
                 <TableHead>Severity</TableHead>
                 <TableHead>Days Null</TableHead>
+                <TableHead>Min</TableHead>
+                <TableHead>Max</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -154,6 +283,8 @@ export default function ProfilingResults({ profile }) {
                   <TableCell>
                     {c.days_null} / {c.days_total}
                   </TableCell>
+                  <TableCell>{c.min_value === null ? <span className="text-muted-foreground">—</span> : c.min_value}</TableCell>
+                  <TableCell>{c.max_value === null ? <span className="text-muted-foreground">—</span> : c.max_value}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

@@ -1,9 +1,10 @@
 import { useState } from "react"
 import { toast } from "sonner"
-import { Wand2, ListChecks, Play, Activity, SlidersHorizontal, Blocks } from "lucide-react"
+import { Wand2, ListChecks, Play, Activity, SlidersHorizontal, Blocks, Table2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import RulesManagementList from "@/components/dataObservability/RulesManagementList"
+import RulesManagementTable from "@/components/dataObservability/RulesManagementTable"
 import ProfilingFields from "@/components/dataObservability/ProfilingFields"
 import ProfilingResults from "@/components/dataObservability/ProfilingResults"
 import ComposerFields from "@/components/dataObservability/ComposerFields"
@@ -43,7 +44,7 @@ import {
 } from "@/lib/dqComposer/constants"
 import { buildRuleQuery } from "@/lib/dqComposer/buildQuery"
 import { runRuleAnalysis } from "@/lib/dqComposer/runAnalysis"
-import { profileTable } from "@/lib/dqComposer/profileTable"
+import { profileTable, computeDefaultDateRange } from "@/lib/dqComposer/profileTable"
 import { buildComposerQuery, genericizeQuery, runComposerRule } from "@/lib/dqComposer/runComposer"
 
 // Rule types needing a second "control table" to compare against.
@@ -168,6 +169,46 @@ export default function DataObservabilityPage() {
   const [subTab, setSubTab] = useState("profiling")
   const [customRules, setCustomRules] = useState([])
 
+  // Rules Management tab — table x dimension rule assignments, sourced from
+  // the Rules Catalog (rule titles, not raw rule-type keys).
+  const [rulesManagementRows, setRulesManagementRows] = useState(() => [
+    {
+      id: "rm_1",
+      table: "etl_cell_5g_ran_ericsson_kpi_daily",
+      category: "RAN",
+      dimension: "Completeness",
+      rules: ["Count Row", "Missing Period"],
+    },
+    {
+      id: "rm_2",
+      table: "etl_cell_5g_ran_ericsson_kpi_daily",
+      category: "RAN",
+      dimension: "Validity",
+      rules: ["Validity Check"],
+    },
+    {
+      id: "rm_3",
+      table: "etl_cell_5g_ran_ericsson_kpi_daily",
+      category: "RAN",
+      dimension: "Uniqueness",
+      rules: ["Uniqueness Check"],
+    },
+    {
+      id: "rm_4",
+      table: "etl_cell_5g_ran_ericsson_kpi_hourly",
+      category: "RAN",
+      dimension: "Timeliness",
+      rules: ["Data Freshness"],
+    },
+    {
+      id: "rm_5",
+      table: "etl_cell_5g_ran_ericsson_kpi_hourly",
+      category: "RAN",
+      dimension: "Accuracy",
+      rules: ["Range Check", "Pattern Check"],
+    },
+  ])
+
   // Schema/Table/Describe/Period — shared across all three DQ Composer
   // sub-tabs (Profiling, Rules, Composer).
   const [schema] = useState(DQ_SCHEMAS[0])
@@ -188,7 +229,8 @@ export default function DataObservabilityPage() {
   // Profiling sub-tab state.
   const [insertTimeColumn, setInsertTimeColumn] = useState("")
   const [uniqKeyColumns, setUniqKeyColumns] = useState([])
-  const [profileLookbackDays, setProfileLookbackDays] = useState(String(DEFAULT_LOOKBACK_DAYS))
+  const [profileStartDate, setProfileStartDate] = useState("")
+  const [profileEndDate, setProfileEndDate] = useState("")
   const [profile, setProfile] = useState(null)
 
   // Composer sub-tab state (Rules Catalog's Add New Rule / Edit Formula).
@@ -236,6 +278,8 @@ export default function DataObservabilityPage() {
     setRuleState(INITIAL_RULE_STATE)
     setInsertTimeColumn("")
     setUniqKeyColumns([])
+    setProfileStartDate("")
+    setProfileEndDate("")
     setProfile(null)
     setComposer(makeInitialComposerState(null))
   }
@@ -256,6 +300,9 @@ export default function DataObservabilityPage() {
     setSqlQuery("")
     setAnalysisRows(null)
     setProfile(null)
+    const defaultRange = computeDefaultDateRange(found.rows, defaultPeriod, DEFAULT_LOOKBACK_DAYS)
+    setProfileStartDate(defaultRange.startDate)
+    setProfileEndDate(defaultRange.endDate)
     patchComposer({ sqlQuery: "", previewRows: null })
     notifySuccess(
       "Table described successfully",
@@ -415,7 +462,8 @@ export default function DataObservabilityPage() {
         partitionColumn,
         insertTimeColumn,
         uniqKeyColumns,
-        lookbackDays: Number(profileLookbackDays),
+        startDate: profileStartDate,
+        endDate: profileEndDate,
       })
     )
   }
@@ -551,6 +599,10 @@ export default function DataObservabilityPage() {
     setSubTab("composer")
   }
 
+  function handleUpdateRulesManagementRow(id, patch) {
+    setRulesManagementRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)))
+  }
+
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col">
       <div className="shrink-0 border-b border-neutral-200 bg-white px-4 pt-3">
@@ -564,12 +616,18 @@ export default function DataObservabilityPage() {
               <ListChecks />
               Rules Catalog
             </TabsTrigger>
+            <TabsTrigger value="rules-management">
+              <Table2 />
+              Rules Management
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
 
       {topTab === "rules-catalog" ? (
         <RulesManagementList customRules={customRules} onAddNew={handleAddNewRule} onEdit={handleEditRule} />
+      ) : topTab === "rules-management" ? (
+        <RulesManagementTable rows={rulesManagementRows} onUpdateRow={handleUpdateRulesManagementRow} />
       ) : (
         <div className="flex h-full min-w-0 flex-1 items-stretch overflow-hidden">
           <aside className="flex h-full w-[380px] shrink-0 flex-col gap-4 self-stretch overflow-y-auto border-r border-neutral-200 bg-white p-4 pt-6">
@@ -623,8 +681,10 @@ export default function DataObservabilityPage() {
                     onInsertTimeColumnChange={setInsertTimeColumn}
                     uniqKeyColumns={uniqKeyColumns}
                     onUniqKeyColumnsChange={setUniqKeyColumns}
-                    lookbackDays={profileLookbackDays}
-                    onLookbackDaysChange={setProfileLookbackDays}
+                    startDate={profileStartDate}
+                    onStartDateChange={setProfileStartDate}
+                    endDate={profileEndDate}
+                    onEndDateChange={setProfileEndDate}
                     onProfileTable={handleProfileTable}
                   />
                 )}
