@@ -232,6 +232,7 @@ export default function DataObservabilityPage() {
   const [profileStartDate, setProfileStartDate] = useState("")
   const [profileEndDate, setProfileEndDate] = useState("")
   const [profile, setProfile] = useState(null)
+  const [isProfiling, setIsProfiling] = useState(false)
 
   // Composer sub-tab state (Rules Catalog's Add New Rule / Edit Formula).
   const [composer, setComposer] = useState(() => makeInitialComposerState(null))
@@ -281,6 +282,7 @@ export default function DataObservabilityPage() {
     setProfileStartDate("")
     setProfileEndDate("")
     setProfile(null)
+    setIsProfiling(false)
     setComposer(makeInitialComposerState(null))
   }
 
@@ -300,6 +302,7 @@ export default function DataObservabilityPage() {
     setSqlQuery("")
     setAnalysisRows(null)
     setProfile(null)
+    setIsProfiling(false)
     const defaultRange = computeDefaultDateRange(found.rows, defaultPeriod, DEFAULT_LOOKBACK_DAYS)
     setProfileStartDate(defaultRange.startDate)
     setProfileEndDate(defaultRange.endDate)
@@ -454,18 +457,23 @@ export default function DataObservabilityPage() {
       toast.error("Select a period column first")
       return
     }
-    setProfile(
-      profileTable({
-        table: fullTableName(schema, tableName),
-        rows: describedTable.rows,
-        columns: describedTable.columns,
-        partitionColumn,
-        insertTimeColumn,
-        uniqKeyColumns,
-        startDate: profileStartDate,
-        endDate: profileEndDate,
-      })
-    )
+    setIsProfiling(true)
+    setProfile(null)
+    setTimeout(() => {
+      setProfile(
+        profileTable({
+          table: fullTableName(schema, tableName),
+          rows: describedTable.rows,
+          columns: describedTable.columns,
+          partitionColumn,
+          insertTimeColumn,
+          uniqKeyColumns,
+          startDate: profileStartDate,
+          endDate: profileEndDate,
+        })
+      )
+      setIsProfiling(false)
+    }, 800)
   }
 
   const composerTableOptionsB = tableOptions.filter((t) => t !== tableName)
@@ -995,7 +1003,7 @@ export default function DataObservabilityPage() {
           </aside>
 
           <div className="flex h-full flex-1 flex-col items-start gap-4 overflow-y-auto p-8 pt-6">
-            {subTab === "profiling" && <ProfilingResults profile={profile} />}
+            {subTab === "profiling" && <ProfilingResults profile={profile} isLoading={isProfiling} />}
 
             {subTab === "rules" && (
               <>

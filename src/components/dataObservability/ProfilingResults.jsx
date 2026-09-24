@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react"
 import { CheckCircle2, Fingerprint, ShieldCheck, Clock, ArrowUp, ArrowDown, Minus, TriangleAlert } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
 import ProfileTrendChart from "@/components/dataObservability/ProfileTrendChart"
@@ -114,7 +116,72 @@ function DimensionCard({ dimensionKey, value, delta }) {
   )
 }
 
-export default function ProfilingResults({ profile }) {
+function LoadingBar() {
+  const [filled, setFilled] = useState(false)
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setFilled(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
+
+  return (
+    <div className="w-full shrink-0 py-1">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-200">
+        <div
+          className="h-full rounded-full bg-foreground transition-[width] duration-[800ms] ease-linear"
+          style={{ width: filled ? "100%" : "0%" }}
+        />
+      </div>
+    </div>
+  )
+}
+
+function ProfilingSkeleton() {
+  return (
+    <>
+      <LoadingBar />
+
+      <div className="grid w-full shrink-0 grid-cols-4 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm [&>*]:border-r [&>*]:border-b [&>*]:border-neutral-200 [&>*:nth-child(4n)]:border-r-0 [&>*:nth-last-child(-n+4)]:border-b-0">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="space-y-1.5 px-3 py-2.5">
+            <Skeleton className="h-2.5 w-16" />
+            <Skeleton className="h-3.5 w-24" />
+          </div>
+        ))}
+      </div>
+
+      <div className="grid w-full shrink-0 grid-cols-2 gap-3 sm:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="flex-1 space-y-3 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-7 w-14" />
+            <Skeleton className="h-1 w-full rounded-full" />
+          </div>
+        ))}
+      </div>
+
+      <div className="w-full shrink-0 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
+        <Skeleton className="h-[220px] w-full" />
+      </div>
+
+      <div className="flex w-full flex-col gap-2">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-40 w-full rounded-lg" />
+      </div>
+
+      <div className="flex w-full flex-col gap-2">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-32 w-full rounded-lg" />
+      </div>
+    </>
+  )
+}
+
+export default function ProfilingResults({ profile, isLoading }) {
+  if (isLoading) {
+    return <ProfilingSkeleton />
+  }
+
   if (!profile) {
     return (
       <div className="flex h-[450px] w-full items-center justify-center rounded-lg border border-dashed border-neutral-200 text-sm text-muted-foreground">
