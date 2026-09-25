@@ -7,7 +7,13 @@ import EnrichDataAdminPage from "@/pages/EnrichDataAdminPage"
 import EnrichDataAdminDetailPage from "@/pages/EnrichDataAdminDetailPage"
 import EnrichDataAddPage from "@/pages/EnrichDataAddPage"
 import SubscriptionPage from "@/pages/SubscriptionPage"
-import CatalogKnowledgePage from "@/pages/CatalogKnowledgePage"
+import CatalogKnowledgeLayout from "@/components/catalogKnowledge/CatalogKnowledgeLayout"
+import BusinessGlossarySection from "@/pages/catalog-knowledge/BusinessGlossarySection"
+import DataCatalogSection from "@/pages/catalog-knowledge/DataCatalogSection"
+import FlowProcessSection from "@/pages/catalog-knowledge/FlowProcessSection"
+import FlowProcessDetailPage from "@/pages/catalog-knowledge/FlowProcessDetailPage"
+import PassedKpiSection from "@/pages/catalog-knowledge/PassedKpiSection"
+import DiscrepancySection from "@/pages/catalog-knowledge/DiscrepancySection"
 import RegisterDataPage from "@/pages/RegisterDataPage"
 import TicketingPage from "@/pages/TicketingPage"
 import TicketingDetailPage from "@/pages/TicketingDetailPage"
@@ -82,7 +88,15 @@ function App() {
           <Route path=":id" element={<EnrichDataAdminDetailPage />} />
         </Route>
         <Route path="/catalog-knowledge" element={<AppSidebarLayout />}>
-          <Route index element={<CatalogKnowledgePage />} />
+          <Route element={<CatalogKnowledgeLayout />}>
+            <Route index element={<Navigate to="business-glossary" replace />} />
+            <Route path="business-glossary" element={<BusinessGlossarySection />} />
+            <Route path="data-catalog" element={<DataCatalogSection />} />
+            <Route path="flow-process" element={<FlowProcessSection />} />
+            <Route path="flow-process/:id" element={<FlowProcessDetailPage />} />
+            <Route path="passed-kpi" element={<PassedKpiSection />} />
+            <Route path="discrepancy" element={<DiscrepancySection />} />
+          </Route>
         </Route>
         <Route path="/indy-assistant" element={<AppSidebarLayout />}>
           <Route index element={<IndyAssistantPage />} />

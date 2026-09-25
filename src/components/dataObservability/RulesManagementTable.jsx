@@ -1,17 +1,52 @@
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import { Pencil, Check, X, Search } from "lucide-react"
+import { Search, SlidersHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { MultiSelect } from "@/components/ui/multi-select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import { getStandardRules } from "@/lib/dqComposer/ruleCatalog"
+import { fullRulesManagementTableName, countRulesForRow } from "@/data/rulesManagementData"
+import { cn } from "@/lib/utils"
 
-function ruleTitlesForDimension(dimension) {
-  return getStandardRules()
-    .filter((r) => r.dimension === dimension)
-    .map((r) => r.title)
+// Display order for dimension columns/accordion sections — cosmetic only,
+// independent of the dimension -> rule-type grouping in constants.js.
+const DIMENSION_ORDER = ["Completeness", "Timeliness", "Validity", "Accuracy", "Uniqueness", "Consistency"]
+
+// All dimension chips share one green nuance — count is what differentiates
+// rows, not chip color.
+const DIMENSION_CHIP_CLASS = "bg-emerald-50 text-emerald-700"
+
+const CONFIGURATION_VIEWS = [
+  { value: "all", label: "All configurations" },
+  { value: "configured", label: "Configured only" },
+  { value: "unconfigured", label: "Unconfigured only" },
+]
+
+const PAGE_SIZE = 25
+
+function rulesForDimension(dimension) {
+  return getStandardRules().filter((r) => r.dimension === dimension)
 }
 
 function sameRules(a, b) {
@@ -21,75 +56,240 @@ function sameRules(a, b) {
   return sa.every((v, i) => v === sb[i])
 }
 
-// Soft, varied Tailwind palette for rule chips — stable per rule name so the
-// same rule always renders the same color across rows.
-const RULE_BADGE_COLORS = [
-  "bg-blue-50 text-blue-700",
-  "bg-emerald-50 text-emerald-700",
-  "bg-amber-50 text-amber-700",
-  "bg-violet-50 text-violet-700",
-  "bg-pink-50 text-pink-700",
-  "bg-cyan-50 text-cyan-700",
-  "bg-orange-50 text-orange-700",
-  "bg-indigo-50 text-indigo-700",
-  "bg-teal-50 text-teal-700",
-  "bg-fuchsia-50 text-fuchsia-700",
-]
+function sameRulesByDimension(a, b) {
+  return DIMENSION_ORDER.every((dim) => sameRules(a[dim] || [], b[dim] || []))
+}
 
-function ruleBadgeColor(rule) {
-  let hash = 0
-  for (let i = 0; i < rule.length; i += 1) hash = (hash * 31 + rule.charCodeAt(i)) | 0
-  return RULE_BADGE_COLORS[Math.abs(hash) % RULE_BADGE_COLORS.length]
+function DimensionCell({ count }) {
+  if (!count) return <span className="text-sm text-muted-foreground">—</span>
+  return (
+    <Badge variant="outline" className={cn("border-transparent font-medium", DIMENSION_CHIP_CLASS)}>
+      {count} {count === 1 ? "rule" : "rules"}
+    </Badge>
+  )
+}
+
+function FilterSelect({ value, onValueChange, options, placeholder }) {
+  const labelsByValue = Object.fromEntries(options.map((o) => [o.value, o.label]))
+  return (
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger className="h-9 shadow-xs">
+        <SelectValue placeholder={placeholder}>{(v) => labelsByValue[v] ?? placeholder}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
+function ManageRulesDrawer({ row, open, onOpenChange, onSave }) {
+  const [draft, setDraft] = useState(() => row?.rulesByDimension || {})
+
+  // Re-seed the draft whenever a different row is opened.
+  const [openRowId, setOpenRowId] = useState(row?.id)
+  if (row && row.id !== openRowId) {
+    setOpenRowId(row.id)
+    setDraft(row.rulesByDimension)
+  }
+
+  if (!row) return null
+
+  const hasChanges = !sameRulesByDimension(draft, row.rulesByDimension)
+
+  function toggleRule(dimension, ruleTitle, checked) {
+    setDraft((prev) => {
+      const current = prev[dimension] || []
+      const next = checked ? [...current, ruleTitle] : current.filter((r) => r !== ruleTitle)
+      return { ...prev, [dimension]: next }
+    })
+  }
+
+  function handleSave() {
+    onSave(row.id, draft)
+    toast.success(`Rules updated for ${fullRulesManagementTableName(row)}`)
+    onOpenChange(false)
+  }
+
+  const totalSelected = DIMENSION_ORDER.reduce((sum, dim) => sum + (draft[dim]?.length || 0), 0)
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-[450px] data-[side=right]:sm:max-w-[450px]">
+        <SheetHeader className="border-b border-neutral-200">
+          <SheetTitle className="pr-8">{fullRulesManagementTableName(row)}</SheetTitle>
+          <SheetDescription>
+            {row.connection} · {row.category} · {row.granularity} · {totalSelected} rules applied
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="flex-1 overflow-y-auto px-4 py-4">
+          <Accordion multiple className="flex flex-col gap-3">
+            {DIMENSION_ORDER.map((dimension) => {
+              const options = rulesForDimension(dimension)
+              const selected = draft[dimension] || []
+
+              return (
+                <AccordionItem
+                  key={dimension}
+                  value={dimension}
+                  className="rounded-lg border border-neutral-200 bg-white"
+                >
+                  <AccordionTrigger className="rounded-lg px-3 hover:bg-muted/60 hover:no-underline">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-foreground">{dimension}</span>
+                      <Badge variant="outline" className={cn("border-transparent font-medium", DIMENSION_CHIP_CLASS)}>
+                        {selected.length}/{options.length}
+                      </Badge>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3">
+                    {options.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No rules available for this dimension yet.</p>
+                    ) : (
+                      <div className="flex flex-col gap-3">
+                        {options.map((rule) => (
+                          <label key={rule.key} className="group flex items-start gap-2.5">
+                            <Checkbox
+                              className="mt-0.5"
+                              checked={selected.includes(rule.title)}
+                              onCheckedChange={(checked) => toggleRule(dimension, rule.title, Boolean(checked))}
+                            />
+                            <span className="min-w-0">
+                              <span className="block text-sm font-medium text-foreground">{rule.title}</span>
+                              <span className="block text-sm text-muted-foreground">{rule.description}</span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              )
+            })}
+          </Accordion>
+        </div>
+
+        <SheetFooter className="flex-row justify-end border-t border-neutral-200">
+          <SheetClose render={<Button type="button" variant="outline" />}>Cancel</SheetClose>
+          <Button type="button" disabled={!hasChanges} onClick={handleSave}>
+            Save Changes
+          </Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
+  )
 }
 
 export default function RulesManagementTable({ rows, onUpdateRow }) {
   const [search, setSearch] = useState("")
-  const [editingId, setEditingId] = useState(null)
-  const [draftRules, setDraftRules] = useState([])
+  const [connectionFilter, setConnectionFilter] = useState("all")
+  const [categoryFilter, setCategoryFilter] = useState("all")
+  const [configFilter, setConfigFilter] = useState("all")
+  const [page, setPage] = useState(1)
+  const [manageRowId, setManageRowId] = useState(null)
+
+  const connectionOptions = useMemo(
+    () => [
+      { value: "all", label: "All connections" },
+      ...[...new Set(rows.map((r) => r.connection))].map((c) => ({ value: c, label: c })),
+    ],
+    [rows]
+  )
+
+  const categoryOptions = useMemo(
+    () => [
+      { value: "all", label: "All categories" },
+      ...[...new Set(rows.map((r) => r.category))].map((c) => ({ value: c, label: c })),
+    ],
+    [rows]
+  )
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter(
-      (r) =>
-        r.table.toLowerCase().includes(q) ||
-        r.category.toLowerCase().includes(q) ||
-        r.dimension.toLowerCase().includes(q) ||
-        r.rules.some((rule) => rule.toLowerCase().includes(q))
-    )
-  }, [rows, search])
+    return rows.filter((row) => {
+      if (connectionFilter !== "all" && row.connection !== connectionFilter) return false
+      if (categoryFilter !== "all" && row.category !== categoryFilter) return false
 
-  function startEdit(row) {
-    setEditingId(row.id)
-    setDraftRules(row.rules)
+      const total = countRulesForRow(row)
+      if (configFilter === "configured" && total === 0) return false
+      if (configFilter === "unconfigured" && total > 0) return false
+
+      if (!q) return true
+      const fullName = fullRulesManagementTableName(row).toLowerCase()
+      const ruleMatch = DIMENSION_ORDER.some((dim) =>
+        (row.rulesByDimension[dim] || []).some((rule) => rule.toLowerCase().includes(q))
+      )
+      return (
+        fullName.includes(q) ||
+        row.category.toLowerCase().includes(q) ||
+        row.connection.toLowerCase().includes(q) ||
+        ruleMatch
+      )
+    })
+  }, [rows, search, connectionFilter, categoryFilter, configFilter])
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const pageRows = filteredRows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+
+  function updateFilter(setter) {
+    return (value) => {
+      setter(value)
+      setPage(1)
+    }
   }
 
-  function cancelEdit() {
-    setEditingId(null)
-    setDraftRules([])
-  }
-
-  function saveEdit(row) {
-    onUpdateRow(row.id, { rules: draftRules })
-    setEditingId(null)
-    setDraftRules([])
-    toast.success(`Rules updated for ${row.table}`)
-  }
+  const manageRow = rows.find((r) => r.id === manageRowId) || null
 
   return (
     <div className="flex w-full flex-1 flex-col gap-6 overflow-y-auto px-8 pt-[18px] pb-8">
-      <div>
-        <h2 className="text-lg font-semibold text-foreground">Rules Management</h2>
-        <p className="text-sm text-muted-foreground">Assign rules from the Rules Catalog to each registered table.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">Rules Management</h2>
+          <p className="text-sm text-muted-foreground">
+            One row per registered table. Select a dimension count or Manage to edit its assigned rules.
+          </p>
+        </div>
+        <Badge variant="outline" className="shrink-0 border-transparent bg-muted font-medium text-muted-foreground">
+          {rows.length} registered tables
+        </Badge>
       </div>
 
-      <div className="relative max-w-xs">
-        <Search className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search table, category, dimension, or rule..."
-          className="h-8 pl-8 text-sm"
+      <div className="flex items-center gap-3">
+        <div className="relative w-64 shrink-0">
+          <Search className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(1)
+            }}
+            placeholder="Search schema or table..."
+            className="h-9 pl-8 text-sm"
+          />
+        </div>
+        <FilterSelect
+          value={connectionFilter}
+          onValueChange={updateFilter(setConnectionFilter)}
+          options={connectionOptions}
+          placeholder="All connections"
+        />
+        <FilterSelect
+          value={categoryFilter}
+          onValueChange={updateFilter(setCategoryFilter)}
+          options={categoryOptions}
+          placeholder="All categories"
+        />
+        <FilterSelect
+          value={configFilter}
+          onValueChange={updateFilter(setConfigFilter)}
+          options={CONFIGURATION_VIEWS}
+          placeholder="All configurations"
         />
       </div>
 
@@ -97,80 +297,105 @@ export default function RulesManagementTable({ rows, onUpdateRow }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Conn ID</TableHead>
-              <TableHead>Nama Table</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Dimension</TableHead>
-              <TableHead className="min-w-[320px]">Rules</TableHead>
-              <TableHead className="w-44">Action</TableHead>
+              <TableHead>Registered Table</TableHead>
+              {DIMENSION_ORDER.map((dimension) => (
+                <TableHead key={dimension}>{dimension}</TableHead>
+              ))}
+              <TableHead>Total</TableHead>
+              <TableHead className="w-28">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredRows.map((row, i) => {
-              const isEditing = editingId === row.id
-              const ruleOptions = ruleTitlesForDimension(row.dimension)
-              const hasChanges = isEditing && !sameRules(draftRules, row.rules)
-
+            {pageRows.map((row) => {
+              const total = countRulesForRow(row)
               return (
                 <TableRow key={row.id}>
-                  <TableCell>{i + 1}</TableCell>
-                  <TableCell className="font-medium">{row.table}</TableCell>
-                  <TableCell>{row.category}</TableCell>
-                  <TableCell>{row.dimension}</TableCell>
                   <TableCell>
-                    {isEditing ? (
-                      <MultiSelect
-                        value={draftRules}
-                        onValueChange={setDraftRules}
-                        options={ruleOptions}
-                        placeholder="Add rules..."
-                        chipClassName={ruleBadgeColor}
-                      />
-                    ) : row.rules.length ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {row.rules.map((rule) => (
-                          <Badge key={rule} variant="outline" className={`border-transparent font-medium ${ruleBadgeColor(rule)}`}>
-                            {rule}
-                          </Badge>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">No rules assigned</span>
-                    )}
+                    <p className="font-medium text-foreground">{fullRulesManagementTableName(row)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {row.connection} · {row.category} · {row.granularity}
+                    </p>
                   </TableCell>
+                  {DIMENSION_ORDER.map((dimension) => (
+                    <TableCell key={dimension}>
+                      <DimensionCell count={row.rulesByDimension[dimension]?.length || 0} />
+                    </TableCell>
+                  ))}
+                  <TableCell className="font-medium text-foreground">{total}</TableCell>
                   <TableCell>
-                    {isEditing ? (
-                      <div className="flex items-center gap-2">
-                        <Button type="button" size="sm" disabled={!hasChanges} onClick={() => saveEdit(row)}>
-                          <Check className="size-3.5" />
-                          Save
-                        </Button>
-                        <Button type="button" size="sm" variant="outline" onClick={cancelEdit}>
-                          <X className="size-3.5" />
-                          Cancel
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button type="button" size="sm" variant="outline" onClick={() => startEdit(row)}>
-                        <Pencil className="size-3.5" />
-                        Edit
-                      </Button>
-                    )}
+                    <Button type="button" size="sm" variant="outline" onClick={() => setManageRowId(row.id)}>
+                      <SlidersHorizontal className="size-3.5" />
+                      Manage
+                    </Button>
                   </TableCell>
                 </TableRow>
               )
             })}
 
-            {filteredRows.length === 0 && (
+            {pageRows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-sm text-muted-foreground">
-                  No tables match your search.
+                <TableCell colSpan={DIMENSION_ORDER.length + 3} className="text-center text-sm text-muted-foreground">
+                  No tables match your filters.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
+
+      {filteredRows.length > 0 && (
+        <Pagination className="justify-between">
+          <p className="text-sm text-muted-foreground">
+            Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredRows.length)} of{" "}
+            {filteredRows.length} tables
+          </p>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                href="#"
+                aria-disabled={currentPage === 1}
+                className={currentPage === 1 ? "pointer-events-none opacity-50" : undefined}
+                onClick={(e) => {
+                  e.preventDefault()
+                  setPage((p) => Math.max(1, p - 1))
+                }}
+              />
+            </PaginationItem>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              <PaginationItem key={p}>
+                <PaginationLink
+                  href="#"
+                  isActive={p === currentPage}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setPage(p)
+                  }}
+                >
+                  {p}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            <PaginationItem>
+              <PaginationNext
+                href="#"
+                aria-disabled={currentPage === totalPages}
+                className={currentPage === totalPages ? "pointer-events-none opacity-50" : undefined}
+                onClick={(e) => {
+                  e.preventDefault()
+                  setPage((p) => Math.min(totalPages, p + 1))
+                }}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
+
+      <ManageRulesDrawer
+        row={manageRow}
+        open={Boolean(manageRow)}
+        onOpenChange={(open) => !open && setManageRowId(null)}
+        onSave={(id, rulesByDimension) => onUpdateRow(id, { rulesByDimension })}
+      />
     </div>
   )
 }

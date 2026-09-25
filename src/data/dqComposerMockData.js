@@ -104,27 +104,53 @@ const HOURLY_ROWS = [
   { start_timestamp: "2026-08-17 14:00:00", cell_id: 33, cell_name: "BGE298MK1_HINALANGBAGASANMK503", erbs_id: "815298", ip_source: "10.52.77.175", regional: "SUMBAGUT", site_id: "BGE298", region_new: "SUMBAGUT", sales_region: "SUMBAGUT", vendor: "ERICSSON", site_class: "Platinum", cluster_name: "SAMOSIR", branch_name: "PEMATANG SIANTAR", nr_sn_setup_success_rate: 100.0, nr_erab_setup_success_rate: null, nr_retainability_rate: 1.7751479289940828, nr_user_throughput_dl_mbps_relactuserdl: 14.014988706785365, insert_time_clickhouse: "2026-08-17 17:05:01.000 +0700" },
 ]
 
-export const DQ_SCHEMAS = ["default"]
+export const DQ_CONNECTIONS = ["10.52.77.11:9000", "10.52.78.24:9000", "10.52.90.5:5432"]
 
-export const DQ_TABLES = {
-  default: [
-    {
-      table: "etl_cell_5g_ran_ericsson_kpi_daily",
-      granularity: "daily",
-      columns: buildColumns(DAILY_COLUMN_NAMES),
-      rows: DAILY_ROWS,
-    },
-    {
-      table: "etl_cell_5g_ran_ericsson_kpi_hourly",
-      granularity: "hourly",
-      columns: buildColumns(HOURLY_COLUMN_NAMES),
-      rows: HOURLY_ROWS,
-    },
-  ],
+export const DQ_CONNECTION_SCHEMAS = {
+  "10.52.77.11:9000": ["default"],
+  "10.52.78.24:9000": ["default"],
+  "10.52.90.5:5432": ["public"],
 }
 
-export function findMockTable(schema, table) {
-  return (DQ_TABLES[schema] || []).find((t) => t.table === table) || null
+// Back-compat flat schema list — used by the Composer's Table B picker, which
+// only ever joins within the connection already selected on the left.
+export const DQ_SCHEMAS = DQ_CONNECTION_SCHEMAS[DQ_CONNECTIONS[0]]
+
+export const DQ_TABLES = {
+  "10.52.77.11:9000": {
+    default: [
+      {
+        table: "etl_cell_5g_ran_ericsson_kpi_daily",
+        granularity: "daily",
+        columns: buildColumns(DAILY_COLUMN_NAMES),
+        rows: DAILY_ROWS,
+      },
+      {
+        table: "etl_cell_5g_ran_ericsson_kpi_hourly",
+        granularity: "hourly",
+        columns: buildColumns(HOURLY_COLUMN_NAMES),
+        rows: HOURLY_ROWS,
+      },
+    ],
+  },
+  "10.52.78.24:9000": {
+    default: [],
+  },
+  "10.52.90.5:5432": {
+    public: [],
+  },
+}
+
+export function getSchemasForConnection(connection) {
+  return DQ_CONNECTION_SCHEMAS[connection] || []
+}
+
+export function getTablesForConnection(connection, schema) {
+  return (DQ_TABLES[connection] && DQ_TABLES[connection][schema]) || []
+}
+
+export function findMockTable(connection, schema, table) {
+  return getTablesForConnection(connection, schema).find((t) => t.table === table) || null
 }
 
 export function fullTableName(schema, table) {

@@ -26,7 +26,13 @@ import {
 } from "@/components/ui/table"
 import { notifySuccess } from "@/lib/toast"
 import { cn } from "@/lib/utils"
-import { DQ_SCHEMAS, DQ_TABLES, findMockTable, fullTableName } from "@/data/dqComposerMockData"
+import {
+  DQ_CONNECTIONS,
+  getSchemasForConnection,
+  getTablesForConnection,
+  findMockTable,
+  fullTableName,
+} from "@/data/dqComposerMockData"
 import { getDimensionKeys } from "@/lib/dqComposer/ruleCatalog"
 import {
   DIMENSIONS,
@@ -42,6 +48,7 @@ import {
   MAX_NOT_NULL_COLUMNS,
   MAX_MISSING_KEY_COLUMNS,
 } from "@/lib/dqComposer/constants"
+import { makeRulesManagementRows } from "@/data/rulesManagementData"
 import { buildRuleQuery } from "@/lib/dqComposer/buildQuery"
 import { runRuleAnalysis } from "@/lib/dqComposer/runAnalysis"
 import { profileTable, computeDefaultDateRange } from "@/lib/dqComposer/profileTable"
@@ -169,49 +176,14 @@ export default function DataObservabilityPage() {
   const [subTab, setSubTab] = useState("profiling")
   const [customRules, setCustomRules] = useState([])
 
-  // Rules Management tab — table x dimension rule assignments, sourced from
-  // the Rules Catalog (rule titles, not raw rule-type keys).
-  const [rulesManagementRows, setRulesManagementRows] = useState(() => [
-    {
-      id: "rm_1",
-      table: "etl_cell_5g_ran_ericsson_kpi_daily",
-      category: "RAN",
-      dimension: "Completeness",
-      rules: ["Count Row", "Missing Period"],
-    },
-    {
-      id: "rm_2",
-      table: "etl_cell_5g_ran_ericsson_kpi_daily",
-      category: "RAN",
-      dimension: "Validity",
-      rules: ["Validity Check"],
-    },
-    {
-      id: "rm_3",
-      table: "etl_cell_5g_ran_ericsson_kpi_daily",
-      category: "RAN",
-      dimension: "Uniqueness",
-      rules: ["Uniqueness Check"],
-    },
-    {
-      id: "rm_4",
-      table: "etl_cell_5g_ran_ericsson_kpi_hourly",
-      category: "RAN",
-      dimension: "Timeliness",
-      rules: ["Data Freshness"],
-    },
-    {
-      id: "rm_5",
-      table: "etl_cell_5g_ran_ericsson_kpi_hourly",
-      category: "RAN",
-      dimension: "Accuracy",
-      rules: ["Range Check", "Pattern Check"],
-    },
-  ])
+  // Rules Management tab — one row per registered table, with rules applied
+  // per dimension (rule titles, not raw rule-type keys).
+  const [rulesManagementRows, setRulesManagementRows] = useState(makeRulesManagementRows)
 
-  // Schema/Table/Describe/Period — shared across all three DQ Composer
-  // sub-tabs (Profiling, Rules, Composer).
-  const [schema] = useState(DQ_SCHEMAS[0])
+  // Connection/Schema/Table/Describe/Period — shared across all three DQ
+  // Composer sub-tabs (Profiling, Rules, Composer).
+  const [connection, setConnection] = useState(DQ_CONNECTIONS[0])
+  const [schema, setSchema] = useState(getSchemasForConnection(DQ_CONNECTIONS[0])[0] || "")
   const [tableName, setTableName] = useState("")
   const [describedTable, setDescribedTable] = useState(null)
   const [partitionColumn, setPartitionColumn] = useState(DEFAULT_PARTITION_COLUMN)
@@ -239,7 +211,8 @@ export default function DataObservabilityPage() {
   const [saveOpen, setSaveOpen] = useState(false)
   const [saveForm, setSaveForm] = useState(null)
 
-  const tableOptions = (DQ_TABLES[schema] || []).map((t) => t.table)
+  const schemaOptions = getSchemasForConnection(connection)
+  const tableOptions = getTablesForConnection(connection, schema).map((t) => t.table)
   const periodColumns = describedTable ? describedTable.columns.filter((c) => c.is_period).map((c) => c.column) : []
   const dataColumns = describedTable ? describedTable.columns.filter((c) => !c.is_period).map((c) => c.column) : []
   const allColumnNames = describedTable ? describedTable.columns.map((c) => c.column) : []
@@ -248,7 +221,7 @@ export default function DataObservabilityPage() {
   const availableGranularities = ruleType === "missing_period" ? MISSING_PERIOD_GRANULARITIES : GRANULARITIES
   const needsControlTable = CONTROL_TABLE_RULE_TYPES.includes(ruleType)
   const controlTableOptions = tableOptions.filter((t) => t !== tableName)
-  const controlTableDef = ruleState.controlTable ? findMockTable(schema, ruleState.controlTable) : null
+  const controlTableDef = ruleState.controlTable ? findMockTable(connection, schema, ruleState.controlTable) : null
   const controlColumnNames = controlTableDef ? controlTableDef.columns.map((c) => c.column) : []
 
   function patchRuleState(patch) {
@@ -267,8 +240,7 @@ export default function DataObservabilityPage() {
     setSaveForm((prev) => ({ ...prev, ...patch }))
   }
 
-  function handleTableChange(next) {
-    setTableName(next)
+  function resetDescribedTableState() {
     setDescribedTable(null)
     setPartitionColumn(DEFAULT_PARTITION_COLUMN)
     // Reset every sub-tab's derived state — it all keys off the described table's columns.
@@ -286,8 +258,26 @@ export default function DataObservabilityPage() {
     setComposer(makeInitialComposerState(null))
   }
 
+  function handleConnectionChange(next) {
+    setConnection(next)
+    setSchema(getSchemasForConnection(next)[0] || "")
+    setTableName("")
+    resetDescribedTableState()
+  }
+
+  function handleSchemaChange(next) {
+    setSchema(next)
+    setTableName("")
+    resetDescribedTableState()
+  }
+
+  function handleTableChange(next) {
+    setTableName(next)
+    resetDescribedTableState()
+  }
+
   function handleDescribe() {
-    const found = findMockTable(schema, tableName)
+    const found = findMockTable(connection, schema, tableName)
     if (!found) {
       toast.error("Select a table first")
       return
@@ -502,7 +492,7 @@ export default function DataObservabilityPage() {
   }
 
   function handleComposerDescribeB() {
-    const found = findMockTable(schema, composer.tableB.tableName)
+    const found = findMockTable(connection, schema, composer.tableB.tableName)
     if (!found) {
       toast.error("Select Table B first")
       return
@@ -603,8 +593,16 @@ export default function DataObservabilityPage() {
 
   function handleEditRule(rule) {
     setComposer(makeInitialComposerState(rule))
-    setTopTab("dq-composer")
-    setSubTab("composer")
+    setSaveForm({
+      columnName: rule.columnName || "",
+      ruleLabel: rule.title || "",
+      description: rule.description || "",
+      queryTemplater: rule.template || "",
+      num: rule.num ?? rule.numerator ?? "",
+      denom: rule.denom ?? rule.denominator ?? "",
+      rate: rule.rate || "",
+    })
+    setSaveOpen(true)
   }
 
   function handleUpdateRulesManagementRow(id, patch) {
@@ -639,7 +637,21 @@ export default function DataObservabilityPage() {
       ) : (
         <div className="flex h-full min-w-0 flex-1 items-stretch overflow-hidden">
           <aside className="flex h-full w-[380px] shrink-0 flex-col gap-4 self-stretch overflow-y-auto border-r border-neutral-200 bg-white p-4 pt-6">
-            <FieldSelect id="dq-schema" label="Schema" value={schema} onValueChange={() => {}} options={DQ_SCHEMAS} />
+            <FieldSelect
+              id="dq-connection"
+              label="Connection"
+              value={connection}
+              onValueChange={handleConnectionChange}
+              options={DQ_CONNECTIONS}
+            />
+
+            <FieldSelect
+              id="dq-schema"
+              label="Schema"
+              value={schema}
+              onValueChange={handleSchemaChange}
+              options={schemaOptions}
+            />
 
             <FieldSelect
               id="dq-table"
@@ -1061,14 +1073,16 @@ export default function DataObservabilityPage() {
             )}
 
             {subTab === "composer" && (
-              <ComposerResults
-                sqlQuery={composer.sqlQuery}
-                onSqlQueryChange={(v) => patchComposer({ sqlQuery: v })}
-                columnMode={composer.columnMode}
-                previewRows={composer.previewRows}
-                onRunAnalysis={handleComposerRunAnalysis}
-                onOpenSave={handleOpenSaveRule}
-              />
+              <div className="flex w-full flex-col gap-4">
+                <ComposerResults
+                  sqlQuery={composer.sqlQuery}
+                  onSqlQueryChange={(v) => patchComposer({ sqlQuery: v })}
+                  columnMode={composer.columnMode}
+                  previewRows={composer.previewRows}
+                  onRunAnalysis={handleComposerRunAnalysis}
+                  onOpenSave={handleOpenSaveRule}
+                />
+              </div>
             )}
           </div>
         </div>

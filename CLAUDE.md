@@ -28,6 +28,10 @@ This project's Figma file is the source of truth once a frame is finalized/edite
 - Don't hardcode hex values in components.
 - Don't invent new token names ad hoc.
 
+## Text Casing
+- **Use Title Case for UI labels** (menu items, section/group headers, sidebar labels, buttons, etc.) — not ALL CAPS via `uppercase`, even for small/muted section headers.
+- Only render text as full uppercase when the underlying data itself is uppercase (e.g. an acronym, a status code, a value from a data source) — never apply an `uppercase` CSS transform purely for visual styling.
+
 ## Icons
 - **Lucide icons** — primary icon set, used by default across the project.
 - **Google Material Symbols (Rounded style — Filled and Outline variants)** — secondary icon set, kept available for cases Lucide doesn't cover well.

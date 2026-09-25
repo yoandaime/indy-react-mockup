@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import { Plus, RefreshCw, Search, Copy } from "lucide-react"
+import { Plus, RefreshCw, Search, Copy, Pencil } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -20,7 +20,10 @@ function FieldStat({ label, value }) {
 
 export default function RulesManagementList({ customRules, onAddNew, onEdit }) {
   const dimensionKeys = getDimensionKeys()
-  const allRules = useMemo(() => [...getStandardRules(), ...customRules], [customRules])
+  const allRules = useMemo(() => {
+    const customKeys = new Set(customRules.map((r) => r.key))
+    return [...getStandardRules().filter((r) => !customKeys.has(r.key)), ...customRules]
+  }, [customRules])
 
   const [activeDimension, setActiveDimension] = useState("all")
   const [search, setSearch] = useState("")
@@ -175,7 +178,11 @@ export default function RulesManagementList({ customRules, onAddNew, onEdit }) {
                       <FieldStat label="Created by" value={createdBy} />
                     </div>
 
-                    <div className="flex items-center justify-end">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button type="button" variant="outline" size="sm" onClick={() => onEdit(rule)}>
+                        <Pencil className="size-3.5" />
+                        Edit
+                      </Button>
                       <Button type="button" variant="outline" size="sm" onClick={() => handleCopy(rule.template)}>
                         <Copy className="size-3.5" />
                         Copy

@@ -31,7 +31,7 @@ const ADMIN_NAV_ITEMS = [
 ]
 
 function SectionLabel({ children }) {
-  return <p className="px-2 text-xs font-semibold tracking-wide text-neutral-500 uppercase">{children}</p>
+  return <p className="px-2 text-xs font-semibold tracking-wide text-neutral-500">{children}</p>
 }
 
 export default function TicketingSidebar({
@@ -50,7 +50,7 @@ export default function TicketingSidebar({
     <aside className="flex h-full w-[240px] shrink-0 flex-col gap-4 overflow-y-auto border-r bg-white p-4">
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <p className="truncate px-2 text-xs font-semibold tracking-wide text-neutral-500 uppercase">NDQ Forum</p>
+          <p className="truncate px-2 text-xs font-semibold tracking-wide text-neutral-500">NDQ Forum</p>
           <button
             type="button"
             aria-label="Collapse sidebar"
