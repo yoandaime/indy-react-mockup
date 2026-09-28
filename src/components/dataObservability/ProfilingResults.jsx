@@ -194,94 +194,126 @@ export default function ProfilingResults({ profile, isLoading }) {
 
   return (
     <>
-      <div className="grid w-full shrink-0 grid-cols-4 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm [&>*]:border-r [&>*]:border-b [&>*]:border-neutral-200 [&>*:nth-child(4n)]:border-r-0 [&>*:nth-last-child(-n+4)]:border-b-0">
-        <InfoItem label="Table" value={profile.table} />
-        <InfoItem
-          label="Period / Insert"
-          value={`${profile.period}${profile.insertTimeColumn ? ` / ${profile.insertTimeColumn}` : ""}`}
-        />
-        <InfoItem label="Uniq Key" value={profile.uniqKeyColumns.length ? profile.uniqKeyColumns.join(", ") : "—"} />
-        <InfoItem label="Last Insert Query" value={profile.lastInsertQuery} />
-        <InfoItem label="Avg Rows" value={profile.summary.avg_rows} />
-        <InfoItem label="Days w/ Data" value={`${profile.summary.days_with_data} / ${profile.summary.days_total}`} />
-        <InfoItem label="Days w/ Gap" value={profile.summary.gap_days} />
-        <InfoItem label="Days w/ Null" value={profile.summary.null_days} />
-      </div>
-
-      <div className="grid w-full shrink-0 grid-cols-2 gap-3 sm:grid-cols-4">
-        {profile.dimensions.map((d) => (
-          <DimensionCard key={d.key} dimensionKey={d.key} value={d.value} delta={d.delta} />
-        ))}
-      </div>
-
-      <div className="w-full shrink-0 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
-        <ProfileTrendChart daily={profile.daily} />
-      </div>
-
-      <div className="flex w-full flex-col gap-2">
-        <p className="text-sm font-medium text-foreground">Daily Table</p>
-        <div className="overflow-x-auto rounded-lg border border-neutral-200 shadow-sm">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>First Insert</TableHead>
-                <TableHead>Last Insert</TableHead>
-                <TableHead>Row Count</TableHead>
-                <TableHead>Gap</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {profile.daily.map((d) => (
-                <TableRow key={d.date}>
-                  <TableCell>{d.date}</TableCell>
-                  <TableCell>{d.first_insert}</TableCell>
-                  <TableCell>{d.last_insert}</TableCell>
-                  <TableCell>{d.rows}</TableCell>
-                  <TableCell>
-                    <GapBadge isGap={d.is_gap} />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+      <>
+        <div className="grid w-full shrink-0 grid-cols-4 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm [&>*]:border-r [&>*]:border-b [&>*]:border-neutral-200 [&>*:nth-child(4n)]:border-r-0 [&>*:nth-last-child(-n+4)]:border-b-0">
+          <InfoItem label="Table" value={profile.table} />
+          <InfoItem
+            label="Period / Insert"
+            value={`${profile.period}${profile.insertTimeColumn ? ` / ${profile.insertTimeColumn}` : ""}`}
+          />
+          <InfoItem label="Uniq Key" value={profile.uniqKeyColumns.length ? profile.uniqKeyColumns.join(", ") : "—"} />
+          <InfoItem label="Last Insert Query" value={profile.lastInsertQuery} />
+          <InfoItem label="Avg Rows" value={profile.summary.avg_rows} />
+          <InfoItem label="Days w/ Data" value={`${profile.summary.days_with_data} / ${profile.summary.days_total}`} />
+          <InfoItem label="Days w/ Gap" value={profile.summary.gap_days} />
+          <InfoItem label="Days w/ Null" value={profile.summary.null_days} />
         </div>
-      </div>
+      </>
 
-      {profile.keyCheckColumns.length > 0 && (
+      <>
+        <div className="grid w-full shrink-0 grid-cols-2 gap-3 sm:grid-cols-4">
+          {profile.dimensions.map((d) => (
+            <DimensionCard key={d.key} dimensionKey={d.key} value={d.value} delta={d.delta} />
+          ))}
+        </div>
+
         <div className="flex w-full flex-col gap-2">
-          <p className="text-sm font-medium text-foreground">Key Column Check</p>
-          <div className="overflow-x-auto rounded-lg border border-neutral-200 shadow-sm">
+          <p className="text-sm font-medium text-foreground">Daily Table</p>
+          <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white shadow-sm">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  {profile.keyCheckColumns.map((col) => (
-                    <TableHead key={col}>{col}</TableHead>
+                  <TableHead>First Insert</TableHead>
+                  <TableHead>Last Insert</TableHead>
+                  <TableHead>Row Count</TableHead>
+                  <TableHead>Gap</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {profile.daily.map((d) => (
+                  <TableRow key={d.date}>
+                    <TableCell>{d.date}</TableCell>
+                    <TableCell>{d.first_insert}</TableCell>
+                    <TableCell>{d.last_insert}</TableCell>
+                    <TableCell>{d.rows}</TableCell>
+                    <TableCell>
+                      <GapBadge isGap={d.is_gap} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+
+        {profile.keyCheckColumns.length > 0 && (
+          <div className="flex w-full flex-col gap-2">
+            <p className="text-sm font-medium text-foreground">Key Column Check</p>
+            <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white shadow-sm">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    {profile.keyCheckColumns.map((col) => (
+                      <TableHead key={col}>{col}</TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {profile.keyUniqCompare.map((entry) => (
+                    <TableRow key={entry.date}>
+                      <TableCell>{entry.date}</TableCell>
+                      {profile.keyCheckColumns.map((col) => (
+                        <TableCell key={col}>
+                          {entry[col] === null ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            <span className="flex items-center gap-2">
+                              {entry[col].uniq}
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "border-transparent font-semibold",
+                                  entry[col].isConsistent ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                                )}
+                              >
+                                {entry[col].isConsistent ? "consistent" : "changed"}
+                              </Badge>
+                            </span>
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+
+        <div className="flex w-full flex-col gap-2">
+          <p className="text-sm font-medium text-foreground">Sample Data</p>
+          <div className="max-h-[320px] overflow-auto rounded-lg border border-neutral-200 bg-white shadow-sm">
+            <Table>
+              <TableHeader className="sticky top-0 z-10">
+                <TableRow>
+                  {sampleColumns.map((col) => (
+                    <TableHead key={col} className="whitespace-nowrap">
+                      {col}
+                    </TableHead>
                   ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {profile.keyUniqCompare.map((entry) => (
-                  <TableRow key={entry.date}>
-                    <TableCell>{entry.date}</TableCell>
-                    {profile.keyCheckColumns.map((col) => (
-                      <TableCell key={col}>
-                        {entry[col] === null ? (
+                {profile.sample.map((row, i) => (
+                  <TableRow key={i}>
+                    {sampleColumns.map((col) => (
+                      <TableCell key={col} className="whitespace-nowrap">
+                        {row[col] === null || row[col] === undefined || row[col] === "" ? (
                           <span className="text-muted-foreground">—</span>
                         ) : (
-                          <span className="flex items-center gap-2">
-                            {entry[col].uniq}
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "border-transparent font-semibold",
-                                entry[col].isConsistent ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
-                              )}
-                            >
-                              {entry[col].isConsistent ? "consistent" : "changed"}
-                            </Badge>
-                          </span>
+                          String(row[col])
                         )}
                       </TableCell>
                     ))}
@@ -291,73 +323,47 @@ export default function ProfilingResults({ profile, isLoading }) {
             </Table>
           </div>
         </div>
-      )}
 
-      <div className="flex w-full flex-col gap-2">
-        <p className="text-sm font-medium text-foreground">Sample Data</p>
-        <div className="max-h-[320px] overflow-auto rounded-lg border border-neutral-200 shadow-sm">
-          <Table>
-            <TableHeader className="sticky top-0 z-10">
-              <TableRow>
-                {sampleColumns.map((col) => (
-                  <TableHead key={col} className="whitespace-nowrap">
-                    {col}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {profile.sample.map((row, i) => (
-                <TableRow key={i}>
-                  {sampleColumns.map((col) => (
-                    <TableCell key={col} className="whitespace-nowrap">
-                      {row[col] === null || row[col] === undefined || row[col] === "" ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : (
-                        String(row[col])
-                      )}
+        <div className="flex w-full flex-col gap-2">
+          <p className="text-sm font-medium text-foreground">Column null/empty profile ({profile.consistentNull.length} columns)</p>
+          <div className="max-h-[360px] overflow-auto rounded-lg border border-neutral-200 bg-white shadow-sm">
+            <Table>
+              <TableHeader className="sticky top-0 z-10">
+                <TableRow>
+                  <TableHead>Column</TableHead>
+                  <TableHead>Avg Null %</TableHead>
+                  <TableHead>Severity</TableHead>
+                  <TableHead>Days Null</TableHead>
+                  <TableHead>Min</TableHead>
+                  <TableHead>Max</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {profile.consistentNull.map((c) => (
+                  <TableRow key={c.column}>
+                    <TableCell>{c.column}</TableCell>
+                    <TableCell>{c.avg_null_pct}%</TableCell>
+                    <TableCell>
+                      <SeverityBadge severity={c.severity} />
                     </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    <TableCell>
+                      {c.days_null} / {c.days_total}
+                    </TableCell>
+                    <TableCell>{c.min_value === null ? <span className="text-muted-foreground">—</span> : c.min_value}</TableCell>
+                    <TableCell>{c.max_value === null ? <span className="text-muted-foreground">—</span> : c.max_value}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
-      </div>
+      </>
 
-      <div className="flex w-full flex-col gap-2">
-        <p className="text-sm font-medium text-foreground">Column null/empty profile ({profile.consistentNull.length} columns)</p>
-        <div className="max-h-[360px] overflow-auto rounded-lg border border-neutral-200 shadow-sm">
-          <Table>
-            <TableHeader className="sticky top-0 z-10">
-              <TableRow>
-                <TableHead>Column</TableHead>
-                <TableHead>Avg Null %</TableHead>
-                <TableHead>Severity</TableHead>
-                <TableHead>Days Null</TableHead>
-                <TableHead>Min</TableHead>
-                <TableHead>Max</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {profile.consistentNull.map((c) => (
-                <TableRow key={c.column}>
-                  <TableCell>{c.column}</TableCell>
-                  <TableCell>{c.avg_null_pct}%</TableCell>
-                  <TableCell>
-                    <SeverityBadge severity={c.severity} />
-                  </TableCell>
-                  <TableCell>
-                    {c.days_null} / {c.days_total}
-                  </TableCell>
-                  <TableCell>{c.min_value === null ? <span className="text-muted-foreground">—</span> : c.min_value}</TableCell>
-                  <TableCell>{c.max_value === null ? <span className="text-muted-foreground">—</span> : c.max_value}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+      <>
+        <div className="w-full shrink-0 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
+          <ProfileTrendChart daily={profile.daily} />
         </div>
-      </div>
+      </>
     </>
   )
 }

@@ -1,11 +1,13 @@
 import { NavLink } from "react-router-dom"
-import { BookText, Database, Workflow, TrendingUp, AlertTriangle, PanelLeft } from "lucide-react"
+import { BookText, Database, Workflow, Network, TrendingUp, AlertTriangle, PanelLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 const CATALOG_KNOWLEDGE_NAV_ITEMS = [
   { to: "/catalog-knowledge/business-glossary", label: "Business Glossary", icon: BookText },
   { to: "/catalog-knowledge/data-catalog", label: "Data Catalog", icon: Database },
   { to: "/catalog-knowledge/flow-process", label: "Flow Process", icon: Workflow },
+  { to: "/catalog-knowledge/metadata-lineage-discovery", label: "Metadata & Lineage Discovery", icon: Network },
 ]
 
 const REPORT_MANAGEMENT_NAV_ITEMS = [
@@ -21,19 +23,25 @@ function NavList({ items }) {
   return (
     <div className="flex w-full flex-col items-start">
       {items.map(({ to, label, icon: Icon }) => (
-        <NavLink
-          key={to}
-          to={to}
-          className={({ isActive }) =>
-            cn(
-              "flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-neutral-700 hover:bg-muted",
-              isActive && "bg-[#fdecee] text-primary hover:bg-[#fdecee]"
-            )
-          }
-        >
-          <Icon className="size-4 shrink-0" />
-          <span className="truncate">{label}</span>
-        </NavLink>
+        <Tooltip key={to}>
+          <TooltipTrigger
+            render={
+              <NavLink
+                to={to}
+                className={({ isActive }) =>
+                  cn(
+                    "flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-neutral-700 hover:bg-muted",
+                    isActive && "bg-[#fdecee] text-primary hover:bg-[#fdecee]"
+                  )
+                }
+              />
+            }
+          >
+            <Icon className="size-4 shrink-0" />
+            <span className="truncate">{label}</span>
+          </TooltipTrigger>
+          <TooltipContent side="right">{label}</TooltipContent>
+        </Tooltip>
       ))}
     </div>
   )

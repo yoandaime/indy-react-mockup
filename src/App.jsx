@@ -12,6 +12,7 @@ import BusinessGlossarySection from "@/pages/catalog-knowledge/BusinessGlossaryS
 import DataCatalogSection from "@/pages/catalog-knowledge/DataCatalogSection"
 import FlowProcessSection from "@/pages/catalog-knowledge/FlowProcessSection"
 import FlowProcessDetailPage from "@/pages/catalog-knowledge/FlowProcessDetailPage"
+import MetadataLineageDiscoverySection from "@/pages/catalog-knowledge/MetadataLineageDiscoverySection"
 import PassedKpiSection from "@/pages/catalog-knowledge/PassedKpiSection"
 import DiscrepancySection from "@/pages/catalog-knowledge/DiscrepancySection"
 import RegisterDataPage from "@/pages/RegisterDataPage"
@@ -94,6 +95,7 @@ function App() {
             <Route path="data-catalog" element={<DataCatalogSection />} />
             <Route path="flow-process" element={<FlowProcessSection />} />
             <Route path="flow-process/:id" element={<FlowProcessDetailPage />} />
+            <Route path="metadata-lineage-discovery" element={<MetadataLineageDiscoverySection />} />
             <Route path="passed-kpi" element={<PassedKpiSection />} />
             <Route path="discrepancy" element={<DiscrepancySection />} />
           </Route>
