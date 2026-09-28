@@ -40,6 +40,8 @@ import {
   getPlatformActivityStats,
   getAllSubscriptionActivity,
   getAllTokenActivity,
+  getAllApiActivity,
+  formatAbsoluteDateTime,
 } from "@/data/subscriptionAdminData"
 import PlatformActivitySummary from "@/components/subscription/PlatformActivitySummary"
 import UserDetailView from "@/components/subscription/UserDetailView"
@@ -1245,39 +1247,80 @@ function SubscriptionOverviewTab() {
 function ActivityListTab() {
   const subscriptionActivity = useMemo(() => getAllSubscriptionActivity(), [])
   const tokenActivity = useMemo(() => getAllTokenActivity(), [])
+  const apiActivity = useMemo(() => getAllApiActivity(), [])
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 bg-[#FCFCFC] p-6 lg:flex-row">
-      <Card className="min-h-0 flex-1 pb-0 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base">Subscription Activity</CardTitle>
-          <CardDescription>Users subscribing and unsubscribing from tables</CardDescription>
-        </CardHeader>
-        <CardContent className="min-h-0 flex-1">
-          <div className="h-full overflow-y-auto">
-            {subscriptionActivity.map((entry) => (
-              <SubscriptionActivityRow key={entry.id} entry={entry} />
-            ))}
-            {subscriptionActivity.length === 0 && (
-              <p className="py-8 text-center text-sm text-muted-foreground">No activity yet.</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+    <div className="flex min-h-0 flex-1 flex-col gap-4 bg-[#FCFCFC] p-6">
+      <div className="flex min-h-0 shrink-0 flex-col gap-4 lg:h-[420px] lg:flex-row">
+        <Card className="min-h-0 flex-1 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base">Subscription Activity</CardTitle>
+            <CardDescription>Users subscribing and unsubscribing from tables</CardDescription>
+          </CardHeader>
+          <CardContent className="min-h-0 flex-1">
+            <div className="h-full overflow-y-auto">
+              {subscriptionActivity.map((entry) => (
+                <SubscriptionActivityRow key={entry.id} entry={entry} />
+              ))}
+              {subscriptionActivity.length === 0 && (
+                <p className="py-8 text-center text-sm text-muted-foreground">No activity yet.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
-      <Card className="min-h-0 flex-1 pb-0 shadow-sm">
+        <Card className="min-h-0 flex-1 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base">Token Activity</CardTitle>
+            <CardDescription>Embed key generation, regeneration, and revocation</CardDescription>
+          </CardHeader>
+          <CardContent className="min-h-0 flex-1">
+            <div className="h-full overflow-y-auto">
+              {tokenActivity.map((entry) => (
+                <TokenActivityRow key={entry.id} entry={entry} />
+              ))}
+              {tokenActivity.length === 0 && (
+                <p className="py-8 text-center text-sm text-muted-foreground">No activity yet.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="min-h-0 shrink-0 shadow-sm lg:h-[420px]">
         <CardHeader>
-          <CardTitle className="text-base">Token Activity</CardTitle>
-          <CardDescription>Embed key generation, regeneration, and revocation</CardDescription>
+          <CardTitle className="text-base">API Activity</CardTitle>
+          <CardDescription>Audit log of recent API requests</CardDescription>
         </CardHeader>
         <CardContent className="min-h-0 flex-1">
-          <div className="h-full overflow-y-auto">
-            {tokenActivity.map((entry) => (
-              <TokenActivityRow key={entry.id} entry={entry} />
-            ))}
-            {tokenActivity.length === 0 && (
-              <p className="py-8 text-center text-sm text-muted-foreground">No activity yet.</p>
-            )}
+          <div className="h-full overflow-auto rounded-lg border border-neutral-200">
+            <Table>
+              <TableHeader className="sticky top-0 z-10">
+                <TableRow>
+                  <TableHead>Email</TableHead>
+                  <TableHead>IP Address</TableHead>
+                  <TableHead>Datetime</TableHead>
+                  <TableHead>Device</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {apiActivity.map((entry) => (
+                  <TableRow key={entry.id}>
+                    <TableCell className="font-mono text-xs">{entry.email}</TableCell>
+                    <TableCell className="font-mono text-xs">{entry.ipAddress}</TableCell>
+                    <TableCell>{formatAbsoluteDateTime(entry.minutesAgo)}</TableCell>
+                    <TableCell>{entry.device}</TableCell>
+                  </TableRow>
+                ))}
+                {apiActivity.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                      No activity yet.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>

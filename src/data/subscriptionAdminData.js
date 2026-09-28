@@ -86,6 +86,45 @@ export function formatRelativeTime(minutesAgo) {
   return `${days} day${days === 1 ? "" : "s"} ago`
 }
 
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+// Absolute "DD Mon YYYY HH:MM" timestamp — matches the format requested for
+// the API Activity log (as opposed to formatRelativeTime's "X mins ago",
+// used by the subscribe/token feeds).
+export function formatAbsoluteDateTime(minutesAgo) {
+  const d = new Date(Date.now() - minutesAgo * 60 * 1000)
+  const hh = String(d.getHours()).padStart(2, "0")
+  const mm = String(d.getMinutes()).padStart(2, "0")
+  return `${d.getDate()} ${MONTH_ABBR[d.getMonth()]} ${d.getFullYear()} ${hh}:${mm}`
+}
+
+const DEVICE_POOL = ["Chrome / macOS", "Firefox / Windows", "Safari / iOS", "Edge / Windows", "Chrome / Android"]
+
+// Synthetic API request log (email, IP, timestamp, device) — stands in for
+// real access logs, so the admin "List Activity" tab has an API Activity
+// table to audit which endpoints users' embed keys have been hitting.
+export function getAllApiActivity() {
+  const entries = []
+
+  for (const user of ADMIN_USERS) {
+    const { email } = getUserProfileFields(user)
+    const hitCount = 2 + (user.id % 3)
+    for (let i = 0; i < hitCount; i++) {
+      const octetSeed = hashHex(`${user.name}-${i}`, 8)
+      entries.push({
+        id: `${user.id}-api-${i}`,
+        user,
+        email,
+        ipAddress: `192.${parseInt(octetSeed.slice(0, 2), 16)}.${parseInt(octetSeed.slice(2, 4), 16)}.${parseInt(octetSeed.slice(4, 6), 16)}`,
+        minutesAgo: 12 + user.id * 9 + i * 47,
+        device: DEVICE_POOL[(user.id + i) % DEVICE_POOL.length],
+      })
+    }
+  }
+
+  return entries.sort((a, b) => a.minutesAgo - b.minutesAgo)
+}
+
 // Synthetic subscribe/unsubscribe history built from the user's current
 // subscription list — batches it into a handful of past events so the
 // activity log has something plausible to show per user. Resolves table
