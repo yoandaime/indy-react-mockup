@@ -1,8 +1,8 @@
 import { CircleAlert, Play, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import SqlEditor from "@/components/dataObservability/SqlEditor"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
 
@@ -32,11 +32,11 @@ export default function ComposerResults({ sqlQuery, onSqlQueryChange, columnMode
     <>
       <div className="space-y-1.5">
         <Label htmlFor="composer-sql">Generated SQL</Label>
-        <Textarea
+        <SqlEditor
           id="composer-sql"
           value={sqlQuery}
           onChange={(e) => onSqlQueryChange(e.target.value)}
-          className="field-sizing-fixed h-64 resize-none overflow-y-auto bg-neutral-50 font-mono text-xs"
+          className="h-64"
         />
       </div>
 

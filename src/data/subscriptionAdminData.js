@@ -95,6 +95,20 @@ export function getUserActivityLog(user) {
   const entries = []
   let minutesAgo = 22 + ((user.id * 5) % 20)
 
+  // Bramantyo Adi's history opens with a recent bulk-subscribe event across
+  // all his tables at once — lands near the top of the global activity feed
+  // (positions ~2-5, unlike Budi Santoso's older bulk-onboarding example
+  // below, which sorts near the bottom) so the "+N more" overflow badge is
+  // visible without scrolling.
+  if (user.id === 9) {
+    entries.push({
+      id: `${user.id}-bulk-recent`,
+      type: "subscribed",
+      tableNames: ids.map((id) => TABLE_BY_ID.get(id)?.name ?? `#${id}`),
+      minutesAgo: 25,
+    })
+  }
+
   for (let i = 0; i < Math.min(5, Math.ceil(ids.length / 2)); i++) {
     const batch = ids.slice(i * 2, i * 2 + (i % 3 === 0 ? 1 : 2))
     if (batch.length === 0) break
@@ -107,7 +121,69 @@ export function getUserActivityLog(user) {
     minutesAgo += 15 + i * 10
   }
 
+  // Budi Santoso's history also includes a large bulk-subscribe event (his
+  // whole starting table list, subscribed at once) — a realistic example of
+  // a batch too big to list inline, so the activity feed's badge list has a
+  // case to demonstrate its "+N more" overflow treatment against.
+  if (user.id === 3) {
+    entries.push({
+      id: `${user.id}-bulk-onboarding`,
+      type: "subscribed",
+      tableNames: ids.map((id) => TABLE_BY_ID.get(id)?.name ?? `#${id}`),
+      minutesAgo: minutesAgo + 60 * 24 * 3,
+    })
+  }
+
   return entries
+}
+
+// Flattens every user's subscribe/unsubscribe history into one global feed,
+// tagged with the user it belongs to — powers the admin "List Activity" tab's
+// Subscription Activity list.
+export function getAllSubscriptionActivity() {
+  return ADMIN_USERS.flatMap((user) => getUserActivityLog(user).map((entry) => ({ ...entry, user }))).sort(
+    (a, b) => a.minutesAgo - b.minutesAgo
+  )
+}
+
+// Synthetic embed-key lifecycle events per user (generated / regenerated /
+// revoked) — deterministic from the user's id and their real embed key/
+// generated-at values, so it stays consistent with what UserDetailView shows.
+export function getUserTokenActivityLog(user) {
+  const embedKey = getUserEmbedKey(user)
+  const tokenPreview = embedKey.slice(0, 18)
+  const generatedMinutesAgo = getUserKeyGeneratedMinutesAgo(user)
+  const entries = [
+    { id: `${user.id}-token-generated`, type: "generated", tokenPreview, minutesAgo: generatedMinutesAgo + 90 },
+  ]
+
+  if (user.id % 3 !== 0) {
+    entries.push({
+      id: `${user.id}-token-regenerated`,
+      type: "regenerated",
+      tokenPreview,
+      minutesAgo: generatedMinutesAgo,
+    })
+  }
+
+  if (user.id % 7 === 0) {
+    entries.push({
+      id: `${user.id}-token-revoked`,
+      type: "revoked",
+      tokenPreview,
+      minutesAgo: Math.max(5, generatedMinutesAgo - 40),
+    })
+  }
+
+  return entries
+}
+
+// Global feed version of getUserTokenActivityLog, for the "List Activity"
+// tab's Token Activity list.
+export function getAllTokenActivity() {
+  return ADMIN_USERS.flatMap((user) => getUserTokenActivityLog(user).map((entry) => ({ ...entry, user }))).sort(
+    (a, b) => a.minutesAgo - b.minutesAgo
+  )
 }
 
 // Aggregates every user's subscriptions into the stats/rankings the Overview

@@ -24,7 +24,7 @@ const MENUS = [
     title: "Customer Data Ops",
     description: "Browse and manage your data source table subscriptions.",
     icon: Rss,
-    path: "/subscription",
+    path: "/customer-data-ops",
   },
   {
     title: "Insiden Management",

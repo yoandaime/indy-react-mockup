@@ -1,9 +1,23 @@
 import { useState } from "react"
 import { Link, useParams } from "react-router-dom"
-import { ChevronRight } from "lucide-react"
+import { ChevronLeft } from "lucide-react"
 import FlowProcessDiagram from "@/components/catalogKnowledge/FlowProcessDiagram"
 import { FLOW_PROCESS_ENTRIES, FLOW_QUALITY_DIMENSIONS } from "@/data/flowProcessData"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+
+function BackButton() {
+  return (
+    <Button
+      variant="secondary"
+      size="icon-sm"
+      nativeButton={false}
+      render={<Link to="/catalog-knowledge/flow-process" aria-label="Back" />}
+    >
+      <ChevronLeft className="size-3" />
+    </Button>
+  )
+}
 
 export default function FlowProcessDetailPage() {
   const { id } = useParams()
@@ -27,14 +41,8 @@ export default function FlowProcessDetailPage() {
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-y-auto bg-white">
-      <div className="space-y-1 border-b pl-4 pr-10 py-4">
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Link to="/catalog-knowledge/flow-process" className="hover:text-foreground">
-            Flow Process
-          </Link>
-          <ChevronRight className="size-3" />
-          <span>Details</span>
-        </div>
+      <div className="flex items-center gap-2 border-b pl-4 pr-10 py-4">
+        <BackButton />
         <p className="text-sm font-medium text-foreground">{entry.subtitlePath}</p>
       </div>
 
@@ -60,7 +68,7 @@ export default function FlowProcessDetailPage() {
         </div>
       </div>
 
-      <div className="space-y-4 p-4">
+      <div className="space-y-4 px-4 pt-4">
         <h3 className="text-sm font-semibold text-foreground">Source Detail</h3>
 
         <div className="h-[200px] space-y-4 overflow-y-auto">
@@ -69,12 +77,12 @@ export default function FlowProcessDetailPage() {
               key={`${source.pathId}-${index}`}
               className="space-y-1.5 rounded-xl border bg-muted/50 p-4"
             >
-              <p className="text-sm font-semibold text-foreground">{source.nodeLabel}</p>
-              <p className="text-sm text-neutral-500">
+              <p className="text-xs font-semibold text-foreground">{source.nodeLabel}</p>
+              <p className="text-xs text-neutral-500">
                 path_source_or_database_name_or_group_id:{" "}
                 <span className="font-mono text-foreground">{source.pathId}</span>
               </p>
-              <p className="text-sm text-neutral-500">
+              <p className="text-xs text-neutral-500">
                 Content: <span className="font-mono text-foreground">{source.content}</span>
               </p>
             </div>

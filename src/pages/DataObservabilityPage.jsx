@@ -13,7 +13,7 @@ import SaveRuleDialog from "@/components/dataObservability/SaveRuleDialog"
 import FieldSelect from "@/components/dataObservability/FieldSelect"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import SqlEditor from "@/components/dataObservability/SqlEditor"
 import { Badge } from "@/components/ui/badge"
 import { MultiSelect } from "@/components/ui/multi-select"
 import {
@@ -1022,10 +1022,10 @@ export default function DataObservabilityPage() {
                 <div className="flex w-full flex-col gap-2">
                   <p className="text-sm font-medium text-foreground">SQL Editor</p>
                   {sqlQuery ? (
-                    <Textarea
+                    <SqlEditor
                       value={sqlQuery}
                       onChange={(e) => setSqlQuery(e.target.value)}
-                      className="field-sizing-fixed h-[450px] resize-none overflow-y-auto bg-neutral-50 font-mono text-xs"
+                      className="h-[450px]"
                     />
                   ) : describedTable ? (
                     <div className="h-[450px] overflow-y-auto rounded-lg border border-neutral-200 bg-neutral-50 p-4">

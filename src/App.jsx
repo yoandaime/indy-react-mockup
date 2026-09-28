@@ -6,7 +6,7 @@ import ApplicationsPage from "@/pages/ApplicationsPage"
 import EnrichDataAdminPage from "@/pages/EnrichDataAdminPage"
 import EnrichDataAdminDetailPage from "@/pages/EnrichDataAdminDetailPage"
 import EnrichDataAddPage from "@/pages/EnrichDataAddPage"
-import SubscriptionPage from "@/pages/SubscriptionPage"
+import CustomerDataOpsPage from "@/pages/CustomerDataOpsPage"
 import CatalogKnowledgeLayout from "@/components/catalogKnowledge/CatalogKnowledgeLayout"
 import BusinessGlossarySection from "@/pages/catalog-knowledge/BusinessGlossarySection"
 import DataCatalogSection from "@/pages/catalog-knowledge/DataCatalogSection"
@@ -37,7 +37,7 @@ function App() {
     pathname.startsWith("/applications") ||
     pathname.startsWith("/data-observability") ||
     pathname.startsWith("/ticketing") ||
-    pathname.startsWith("/subscription") ||
+    pathname.startsWith("/customer-data-ops") ||
     pathname.startsWith("/enrich-data/admin") ||
     pathname.startsWith("/catalog-knowledge") ||
     pathname.startsWith("/indy-assistant")
@@ -72,8 +72,8 @@ function App() {
         <Route path="/data-observability" element={<AppSidebarLayout />}>
           <Route index element={<DataObservabilityPage />} />
         </Route>
-        <Route path="/subscription" element={<AppSidebarLayout />}>
-          <Route index element={<SubscriptionPage />} />
+        <Route path="/customer-data-ops" element={<AppSidebarLayout />}>
+          <Route index element={<CustomerDataOpsPage />} />
         </Route>
         <Route
           path="/enrich-data/admin"

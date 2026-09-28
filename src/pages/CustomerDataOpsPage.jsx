@@ -17,6 +17,7 @@ import {
   Table2,
   Clock,
   ChevronDown,
+  History,
 } from "lucide-react"
 import {
   APPLICATIONS,
@@ -37,11 +38,13 @@ import {
   formatRelativeTime,
   getTableSubscribers,
   getPlatformActivityStats,
+  getAllSubscriptionActivity,
+  getAllTokenActivity,
 } from "@/data/subscriptionAdminData"
 import PlatformActivitySummary from "@/components/subscription/PlatformActivitySummary"
 import UserDetailView from "@/components/subscription/UserDetailView"
 import DimensionBarChart from "@/components/subscription/DimensionBarChart"
-import { TagRow } from "@/components/subscription/shared"
+import { TagRow, SubscriptionActivityRow, TokenActivityRow } from "@/components/subscription/shared"
 import { TAILWIND_SHADES } from "@/lib/chartColors"
 import { ticketAuthorInitials, ticketAuthorAvatarUrl } from "@/data/ticketingData"
 import indyLogo from "@/assets/indy-logo.svg"
@@ -1239,7 +1242,50 @@ function SubscriptionOverviewTab() {
   )
 }
 
-export default function SubscriptionPage() {
+function ActivityListTab() {
+  const subscriptionActivity = useMemo(() => getAllSubscriptionActivity(), [])
+  const tokenActivity = useMemo(() => getAllTokenActivity(), [])
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-4 bg-[#FCFCFC] p-6 lg:flex-row">
+      <Card className="min-h-0 flex-1 pb-0 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base">Subscription Activity</CardTitle>
+          <CardDescription>Users subscribing and unsubscribing from tables</CardDescription>
+        </CardHeader>
+        <CardContent className="min-h-0 flex-1">
+          <div className="h-full overflow-y-auto">
+            {subscriptionActivity.map((entry) => (
+              <SubscriptionActivityRow key={entry.id} entry={entry} />
+            ))}
+            {subscriptionActivity.length === 0 && (
+              <p className="py-8 text-center text-sm text-muted-foreground">No activity yet.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="min-h-0 flex-1 pb-0 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base">Token Activity</CardTitle>
+          <CardDescription>Embed key generation, regeneration, and revocation</CardDescription>
+        </CardHeader>
+        <CardContent className="min-h-0 flex-1">
+          <div className="h-full overflow-y-auto">
+            {tokenActivity.map((entry) => (
+              <TokenActivityRow key={entry.id} entry={entry} />
+            ))}
+            {tokenActivity.length === 0 && (
+              <p className="py-8 text-center text-sm text-muted-foreground">No activity yet.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+export default function CustomerDataOpsPage() {
   const [mainTab, setMainTab] = useState("user-management")
   const [userManagementTab, setUserManagementTab] = useState("overview")
   const [selectedUserId, setSelectedUserId] = useState(null)
@@ -1423,6 +1469,10 @@ export default function SubscriptionPage() {
                       <Table2 />
                       List Table
                     </TabsTrigger>
+                    <TabsTrigger value="list-activity">
+                      <History />
+                      List Activity
+                    </TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>
@@ -1441,6 +1491,7 @@ export default function SubscriptionPage() {
                   <TableSubscriptionsList tables={SUBSCRIPTION_TABLES} />
                 </div>
               )}
+              {userManagementTab === "list-activity" && <ActivityListTab />}
             </>
           )}
         </TabsContent>

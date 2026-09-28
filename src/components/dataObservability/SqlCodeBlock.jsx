@@ -1,6 +1,6 @@
 // Lightweight regex-based SQL syntax highlighter for the Rules Catalog's
 // query template preview — mirrors the JS highlighter pattern used for the
-// Kafka consumer script in SubscriptionPage.jsx, adapted to the ClickHouse
+// Kafka consumer script in CustomerDataOpsPage.jsx, adapted to the ClickHouse
 // dialect used by ruleCatalog.js templates.
 
 const SQL_KEYWORDS = new Set([

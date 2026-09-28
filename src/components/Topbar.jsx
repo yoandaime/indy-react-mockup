@@ -7,7 +7,7 @@ const CURRENT_USER_NAME = "Antonio Nusa"
 
 export default function Topbar() {
   const { pathname } = useLocation()
-  const hideTitle = pathname === "/subscription" || pathname === "/"
+  const hideTitle = pathname === "/customer-data-ops" || pathname === "/"
 
   return (
     <header className="sticky top-0 z-[100] flex h-14 items-center justify-between gap-3 border-b border-border bg-card px-10 shadow-sm">
