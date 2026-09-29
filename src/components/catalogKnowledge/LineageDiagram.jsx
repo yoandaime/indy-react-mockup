@@ -21,7 +21,7 @@ function LineageNode({ data }) {
   const { icon } = LINEAGE_KIND_CONFIG[data.kind] ?? LINEAGE_KIND_CONFIG.source
 
   return (
-    <div className="flex w-[130px] flex-col items-center gap-2">
+    <div className="flex w-[160px] flex-col items-center gap-2">
       <span className="text-sm font-medium text-foreground">{data.label}</span>
       <div className="relative flex size-[100px] items-center justify-center rounded-lg border border-dashed border-neutral-300 bg-neutral-50">
         <Handle type="target" position={Position.Left} className="!size-2 !border-neutral-300 !bg-white" />
@@ -35,6 +35,26 @@ function LineageNode({ data }) {
           </span>
         )}
       </div>
+      {data.showDqValue && (
+        <div className="w-full space-y-1 rounded-lg border bg-white px-2.5 py-2 text-[11px] text-neutral-600 shadow-sm">
+          <div className="flex items-center justify-between gap-2">
+            <span>Data Quality Score</span>
+            <span className="font-semibold text-foreground">{data.dqValue}%</span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span>Completeness</span>
+            <span className="font-semibold text-foreground">{data.completeness}%</span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span>Timeliness</span>
+            <span className="font-semibold text-foreground">{data.timeliness}%</span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span>Total Data</span>
+            <span className="font-semibold text-foreground">{data.totalData}</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -48,7 +68,15 @@ export default function LineageDiagram({ nodes: nodeDefs, edges: edgeDefs, showD
         id: node.id,
         type: "lineage",
         position: { x: node.x, y: node.y },
-        data: { label: node.label, kind: node.kind, dqValue: node.dqValue, showDqValue },
+        data: {
+          label: node.label,
+          kind: node.kind,
+          dqValue: node.dqValue,
+          completeness: node.completeness,
+          timeliness: node.timeliness,
+          totalData: node.totalData,
+          showDqValue,
+        },
         draggable: false,
       })),
     [nodeDefs, showDqValue]
@@ -68,6 +96,7 @@ export default function LineageDiagram({ nodes: nodeDefs, edges: edgeDefs, showD
 
   return (
     <ReactFlow
+      key={showDqValue ? "with-dq" : "without-dq"}
       nodes={nodes}
       edges={edges}
       nodeTypes={nodeTypes}

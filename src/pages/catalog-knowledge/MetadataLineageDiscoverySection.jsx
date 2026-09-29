@@ -18,7 +18,7 @@ export default function MetadataLineageDiscoverySection() {
       <div className="flex items-center gap-2">
         <Switch id="show-dq-value" checked={showDqValue} onCheckedChange={setShowDqValue} />
         <label htmlFor="show-dq-value" className="text-sm text-neutral-700">
-          Show Data Quality Value
+          Show Data Quality Score
         </label>
       </div>
 
