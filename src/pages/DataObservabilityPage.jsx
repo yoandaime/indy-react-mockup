@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { Wand2, ListChecks, Play, Activity, SlidersHorizontal, Blocks, Table2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -49,6 +49,9 @@ import {
   MAX_MISSING_KEY_COLUMNS,
 } from "@/lib/dqComposer/constants"
 import { makeRulesManagementRows } from "@/data/rulesManagementData"
+import { useLocalStorageState } from "@/lib/useLocalStorageState"
+import { useAccess } from "@/context/AccessContext"
+import { requesterDisplayName, formatDateTime } from "@/lib/requestStatus"
 import { buildRuleQuery } from "@/lib/dqComposer/buildQuery"
 import { runRuleAnalysis } from "@/lib/dqComposer/runAnalysis"
 import { profileTable, computeDefaultDateRange } from "@/lib/dqComposer/profileTable"
@@ -172,13 +175,24 @@ function clampSelection(values, max) {
 }
 
 export default function DataObservabilityPage() {
+  const { role } = useAccess()
   const [topTab, setTopTab] = useState("dq-composer")
   const [subTab, setSubTab] = useState("profiling")
-  const [customRules, setCustomRules] = useState([])
+
+  // New rules submitted via the Composer go through an approval workflow —
+  // pending until an admin reviews them in Rules Catalog's "Request New
+  // Rules" section. Approved requests are what populate the custom rules
+  // shown in "All rules". Persisted + cross-tab synced so a request made in
+  // a "user" tab shows up live for review in an "admin" tab.
+  const [ruleRequests, setRuleRequests] = useLocalStorageState("indy-rule-requests", [])
+  const customRules = useMemo(() => ruleRequests.filter((r) => r.status === "approved"), [ruleRequests])
 
   // Rules Management tab — one row per registered table, with rules applied
   // per dimension (rule titles, not raw rule-type keys).
-  const [rulesManagementRows, setRulesManagementRows] = useState(makeRulesManagementRows)
+  const [rulesManagementRows, setRulesManagementRows] = useLocalStorageState(
+    "indy-rules-management-rows",
+    makeRulesManagementRows
+  )
 
   // Connection/Schema/Table/Describe/Period — shared across all three DQ
   // Composer sub-tabs (Profiling, Rules, Composer).
@@ -560,29 +574,77 @@ export default function DataObservabilityPage() {
       toast.error("Rule Label is required")
       return
     }
-    const key = composer.key || `custom_${slugify(saveForm.ruleLabel)}_${Date.now().toString(36)}`
-    const rule = {
-      key,
-      dimension: composer.dimension,
-      title: saveForm.ruleLabel,
-      description: saveForm.description,
-      template: saveForm.queryTemplater,
-      custom: true,
-      updatedAt: formatToday(),
-      mode: composer.columnMode,
-      columnName: saveForm.columnName,
-      num: saveForm.num,
-      denom: saveForm.denom,
-      rate: saveForm.rate,
+
+    const isEditingApproved = Boolean(composer.key)
+    if (isEditingApproved) {
+      // Editing an already-approved custom rule — applies directly, no new
+      // approval needed since it isn't a new rule.
+      setRuleRequests((prev) =>
+        prev.map((r) =>
+          r.key === composer.key
+            ? {
+                ...r,
+                dimension: composer.dimension,
+                title: saveForm.ruleLabel,
+                description: saveForm.description,
+                template: saveForm.queryTemplater,
+                updatedAt: formatToday(),
+                mode: composer.columnMode,
+                columnName: saveForm.columnName,
+                num: saveForm.num,
+                denom: saveForm.denom,
+                rate: saveForm.rate,
+              }
+            : r
+        )
+      )
+      setSaveOpen(false)
+      setTopTab("rules-catalog")
+      setComposer(makeInitialComposerState(null))
+      notifySuccess("Rule saved", `"${saveForm.ruleLabel}" was updated.`)
+      return
     }
-    setCustomRules((prev) => {
-      const exists = prev.some((r) => r.key === rule.key)
-      return exists ? prev.map((r) => (r.key === rule.key ? rule : r)) : [...prev, rule]
-    })
+
+    const key = `custom_${slugify(saveForm.ruleLabel)}_${Date.now().toString(36)}`
+    const requestedBy = requesterDisplayName(role)
+    const now = new Date()
+    setRuleRequests((prev) => [
+      ...prev,
+      {
+        id: `rule_req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+        key,
+        dimension: composer.dimension,
+        title: saveForm.ruleLabel,
+        description: saveForm.description,
+        template: saveForm.queryTemplater,
+        custom: true,
+        updatedAt: formatToday(),
+        mode: composer.columnMode,
+        columnName: saveForm.columnName,
+        num: saveForm.num,
+        denom: saveForm.denom,
+        rate: saveForm.rate,
+        createdBy: requestedBy,
+        status: "pending",
+        requestedBy,
+        requestedAt: formatDateTime(now),
+        requestedAtMs: now.getTime(),
+      },
+    ])
     setSaveOpen(false)
     setTopTab("rules-catalog")
     setComposer(makeInitialComposerState(null))
-    notifySuccess("Rule saved", `"${saveForm.ruleLabel}" was added to Rules Catalog.`)
+    notifySuccess("Rule request submitted", `"${saveForm.ruleLabel}" was sent for admin approval.`)
+  }
+
+  function handleApproveRuleRequest(requestId) {
+    setRuleRequests((prev) => prev.map((r) => (r.id === requestId ? { ...r, status: "approved" } : r)))
+  }
+
+  function handleRejectRuleRequest(requestId, reason) {
+    setRuleRequests((prev) =>
+      prev.map((r) => (r.id === requestId ? { ...r, status: "rejected", reviewNote: reason } : r))
+    )
   }
 
   function handleAddNewRule() {
@@ -631,7 +693,14 @@ export default function DataObservabilityPage() {
       </div>
 
       {topTab === "rules-catalog" ? (
-        <RulesManagementList customRules={customRules} onAddNew={handleAddNewRule} onEdit={handleEditRule} />
+        <RulesManagementList
+          customRules={customRules}
+          ruleRequests={ruleRequests}
+          onAddNew={handleAddNewRule}
+          onEdit={handleEditRule}
+          onApproveRequest={handleApproveRuleRequest}
+          onRejectRequest={handleRejectRuleRequest}
+        />
       ) : topTab === "rules-management" ? (
         <RulesManagementTable rows={rulesManagementRows} onUpdateRow={handleUpdateRulesManagementRow} />
       ) : (

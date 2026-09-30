@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import SqlEditor from "@/components/dataObservability/SqlEditor"
 import {
   Dialog,
   DialogContent,
@@ -15,7 +16,7 @@ import {
 export default function SaveRuleDialog({ open, onOpenChange, form, onPatch, onSubmit }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="w-[600px] max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Save Rule</DialogTitle>
           <DialogDescription>Review the generic formula before adding it to Rules Catalog.</DialogDescription>
@@ -42,36 +43,41 @@ export default function SaveRuleDialog({ open, onOpenChange, form, onPatch, onSu
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="save-templater">Query Templater</Label>
-              <Textarea
+              <SqlEditor
                 id="save-templater"
                 value={form.queryTemplater}
                 onChange={(e) => onPatch({ queryTemplater: e.target.value })}
-                className="field-sizing-fixed h-40 resize-none overflow-y-auto bg-neutral-50 font-mono text-xs"
+                className="h-48"
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
                 <Label htmlFor="save-num">Num</Label>
-                <Textarea
+                <SqlEditor
                   id="save-num"
                   value={form.num}
                   onChange={(e) => onPatch({ num: e.target.value })}
-                  className="field-sizing-fixed h-16 resize-none font-mono text-xs"
+                  className="h-16"
                 />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="save-denom">Denom</Label>
-                <Textarea
+                <SqlEditor
                   id="save-denom"
                   value={form.denom}
                   onChange={(e) => onPatch({ denom: e.target.value })}
-                  className="field-sizing-fixed h-16 resize-none font-mono text-xs"
+                  className="h-16"
                 />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="save-rate">Rate</Label>
-              <Input id="save-rate" value={form.rate} onChange={(e) => onPatch({ rate: e.target.value })} className="font-mono text-xs" />
+              <SqlEditor
+                id="save-rate"
+                value={form.rate}
+                onChange={(e) => onPatch({ rate: e.target.value })}
+                className="h-9"
+              />
             </div>
           </div>
         )}

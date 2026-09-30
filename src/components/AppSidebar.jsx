@@ -14,6 +14,7 @@ import {
   ChevronsUpDown,
   User,
   LogOut,
+  RotateCcw,
 } from "lucide-react"
 import indyLogoMark from "@/assets/indy-logo-mark.svg"
 import indyLogo from "@/assets/indy-logo.svg"
@@ -28,10 +29,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { ticketAuthorAvatarUrl } from "@/data/ticketingData"
+import { ticketAuthorAvatarUrl, ticketAuthorInitials } from "@/data/ticketingData"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { useAccess } from "@/context/AccessContext"
 
 const CURRENT_USER_NAME = "Antonio Nusa"
+
+// Prototype-only mock data persisted to localStorage (see useLocalStorageState) —
+// cleared by "Reset Demo Data" so a stale demo doesn't linger across sessions.
+const DEMO_DATA_STORAGE_KEYS = ["indy-rules-management-rows", "indy-rules-change-requests"]
+
+function handleResetDemoData() {
+  for (const key of DEMO_DATA_STORAGE_KEYS) window.localStorage.removeItem(key)
+  window.location.reload()
+}
 
 const MENU_ITEMS = [
   { key: "applications", label: "Applications", icon: LayoutGrid, path: "/applications" },
@@ -86,6 +97,11 @@ function MenuList() {
 }
 
 function UserFooter({ expanded }) {
+  const { role } = useAccess()
+  const isUser = role === "user"
+  const roleLabel = isUser ? "User" : "Admin"
+  const displayName = isUser ? "William Saliba" : CURRENT_USER_NAME
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -95,16 +111,16 @@ function UserFooter({ expanded }) {
         )}
       >
         <Avatar className="size-6 shrink-0 bg-neutral-100">
-          {ticketAuthorAvatarUrl(CURRENT_USER_NAME) && (
-            <AvatarImage src={ticketAuthorAvatarUrl(CURRENT_USER_NAME)} alt={CURRENT_USER_NAME} />
+          {ticketAuthorAvatarUrl(displayName) && (
+            <AvatarImage src={ticketAuthorAvatarUrl(displayName)} alt={displayName} />
           )}
-          <AvatarFallback className="text-xs">AN</AvatarFallback>
+          <AvatarFallback className="text-xs">{ticketAuthorInitials(displayName)}</AvatarFallback>
         </Avatar>
         {expanded && (
           <>
             <div className="flex min-w-0 flex-1 flex-col justify-center whitespace-nowrap text-left">
-              <p className="text-sm font-medium text-neutral-900">Antonio Nusa</p>
-              <p className="text-xs text-neutral-600">Admin</p>
+              <p className="text-sm font-medium text-neutral-900">{displayName}</p>
+              <p className="text-xs text-neutral-600">{roleLabel}</p>
             </div>
             <ChevronsUpDown className="size-3.5 shrink-0 text-neutral-400" />
           </>
@@ -112,11 +128,15 @@ function UserFooter({ expanded }) {
       </DropdownMenuTrigger>
       <DropdownMenuContent side="top" align="start" sideOffset={8} className="w-56">
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Antonio Nusa</DropdownMenuLabel>
+          <DropdownMenuLabel>{displayName}</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem>
             <User />
             My Profile
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleResetDemoData}>
+            <RotateCcw />
+            Reset Demo Data
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive">

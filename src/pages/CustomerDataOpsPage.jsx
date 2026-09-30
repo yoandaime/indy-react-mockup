@@ -90,6 +90,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { cn } from "@/lib/utils"
+import { useAccess } from "@/context/AccessContext"
 
 const EMBED_BASE_URL =
   "https://indy.telkomsel.co.id/content-mangement/embed/dashboard/tables"
@@ -1329,7 +1330,9 @@ function ActivityListTab() {
 }
 
 export default function CustomerDataOpsPage() {
-  const [mainTab, setMainTab] = useState("user-management")
+  const { role } = useAccess()
+  const isAdmin = role !== "user"
+  const [mainTab, setMainTab] = useState(isAdmin ? "user-management" : "subscription")
   const [userManagementTab, setUserManagementTab] = useState("overview")
   const [selectedUserId, setSelectedUserId] = useState(null)
   const selectedUser = useMemo(
@@ -1470,254 +1473,266 @@ export default function CustomerDataOpsPage() {
     justSavedTimeoutRef.current = setTimeout(() => setJustSavedIds(new Set()), 1500)
   }
 
-  return (
-    <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-white">
-      <Tabs value={mainTab} onValueChange={setMainTab} className="flex min-h-0 flex-1 flex-col gap-0">
-        <div className="w-full shrink-0 border-b pt-4 pr-6 pl-[20px]">
-          <TabsList variant="line" className="justify-start gap-1">
-            <TabsTrigger value="user-management">User Management</TabsTrigger>
-            <TabsTrigger value="subscription">Subscription</TabsTrigger>
-          </TabsList>
+  const subscriptionSection = (
+    <>
+      <div className="flex shrink-0 items-start justify-between border-b px-6 py-[18px]">
+        <div className="space-y-0.5">
+          <h2 className="text-xl leading-6 font-semibold text-foreground">
+            Subscription
+          </h2>
+          <p className="text-xs leading-4 text-neutral-600">
+            All your data source subscriptions
+          </p>
+        </div>
+        <GetEmbedCodeDialog subscribedTables={subscribedTables} />
+      </div>
+
+      <div className="flex min-h-0 flex-1 items-stretch overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-[7] flex-col gap-4 px-6 pt-5 pb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-4">
+            <Select value={appFilter} onValueChange={setAppFilter}>
+              <SelectTrigger className="h-9 w-fit gap-2">
+                <span className="text-muted-foreground">Application:</span>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {APPLICATIONS.map((a) => (
+                  <SelectItem key={a} value={a}>
+                    {a}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="h-9 w-fit gap-2">
+                <span className="text-muted-foreground">Category Data:</span>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CATEGORIES.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={hostFilter} onValueChange={setHostFilter}>
+              <SelectTrigger className="h-9 w-fit gap-2">
+                <span className="text-muted-foreground">IP Host / Host Name:</span>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {HOST_OPTIONS.map((h) => (
+                  <SelectItem key={h} value={h}>
+                    {h}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={layerFilter} onValueChange={setLayerFilter}>
+              <SelectTrigger className="h-9 w-fit gap-2">
+                <span className="text-muted-foreground">Layer ID:</span>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LAYER_ID_OPTIONS.map((l) => (
+                  <SelectItem key={l} value={l}>
+                    {l}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            {isEditMode ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 min-h-8 rounded-[8px] border-neutral-300 bg-white/10 py-2 pr-2 pl-2.5 text-sm shadow-xs"
+                  onClick={handleCancel}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-8 min-h-8 rounded-[8px] py-2 pr-2 pl-2.5 text-sm shadow-xs"
+                  disabled={!hasDraftChanges}
+                  onClick={handleSave}
+                >
+                  Save
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 min-h-8 gap-1.5 rounded-[8px] border-neutral-300 bg-white/10 py-2 pr-2 pl-2.5 text-sm shadow-xs"
+                onClick={enterEditMode}
+              >
+                <Pencil className="size-3.5" />
+                Edit subscription
+              </Button>
+            )}
+          </div>
         </div>
 
-        <TabsContent value="user-management" className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-white">
-          {selectedUser ? (
-            <div className="p-6">
-              <UserDetailView
-                key={selectedUser.id}
-                user={selectedUser}
-                onBack={() => setSelectedUserId(null)}
-              />
-            </div>
-          ) : (
-            <>
-              <div className="shrink-0 space-y-3 border-b bg-white px-6 py-[18px]">
-                <div className="space-y-0.5">
-                  <h2 className="text-xl leading-6 font-semibold text-foreground">User Management</h2>
-                  <p className="text-xs leading-4 text-neutral-600">
-                    Admin summary of users, their subscriptions, and subscribed tables
-                  </p>
-                </div>
-                <Tabs value={userManagementTab} onValueChange={setUserManagementTab}>
-                  <TabsList>
-                    <TabsTrigger value="overview">
-                      <LayoutDashboard />
-                      Overview
-                    </TabsTrigger>
-                    <TabsTrigger value="list-user">
-                      <Users />
-                      List User
-                    </TabsTrigger>
-                    <TabsTrigger value="list-table">
-                      <Table2 />
-                      List Table
-                    </TabsTrigger>
-                    <TabsTrigger value="list-activity">
-                      <History />
-                      List Activity
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
+        <div className="space-y-2">
+          <SearchField value={search} onChange={(e) => setSearch(e.target.value)} />
+          <p className="text-xs font-medium text-neutral-600">
+            Showing {filtered.length} tables
+          </p>
+        </div>
 
-              {userManagementTab === "overview" && <SubscriptionOverviewTab />}
-              {userManagementTab === "list-user" && (
-                <div className="p-6">
-                  <UserSubscriptionsList
-                    users={ADMIN_USERS}
-                    onSelectUser={(user) => setSelectedUserId(user.id)}
-                  />
-                </div>
-              )}
-              {userManagementTab === "list-table" && (
-                <div className="p-6">
-                  <TableSubscriptionsList tables={SUBSCRIPTION_TABLES} />
-                </div>
-              )}
-              {userManagementTab === "list-activity" && <ActivityListTab />}
-            </>
+        {isEditMode && (
+          <SelectAllRow
+            checked={allFilteredChecked}
+            indeterminate={someFilteredChecked && !allFilteredChecked}
+            onChange={handleSelectAllChange}
+            canBulkSubscribe={canBulkSubscribe}
+            canBulkUnsubscribe={canBulkUnsubscribe}
+            onBulkSubscribe={bulkSubscribe}
+            onBulkUnsubscribe={bulkUnsubscribe}
+          />
+        )}
+
+        <div className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-y-auto">
+          {filtered.map((t) => (
+            <SubscriptionRow
+              key={t.id}
+              table={t}
+              isSubscribed={(isEditMode ? draftSubscribedIds : subscribedIds).has(t.id)}
+              isEditMode={isEditMode}
+              isChecked={checkedIds.has(t.id)}
+              onToggleChecked={toggleChecked}
+            />
+          ))}
+          {filtered.length === 0 && (
+            <p className="w-full py-4 text-center text-sm text-muted-foreground">
+              No tables match your filters.
+            </p>
           )}
-        </TabsContent>
+        </div>
+      </div>
 
-        <TabsContent value="subscription" className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="flex shrink-0 items-start justify-between border-b px-6 py-[18px]">
-            <div className="space-y-0.5">
-              <h2 className="text-xl leading-6 font-semibold text-foreground">
-                Subscription
-              </h2>
-              <p className="text-xs leading-4 text-neutral-600">
-                All your data source subscriptions
-              </p>
-            </div>
-            <GetEmbedCodeDialog subscribedTables={subscribedTables} />
+      <div className="flex min-h-0 min-w-0 flex-[3] flex-col gap-2 border-l px-6 pt-5 pb-6">
+        <div className="shrink-0 space-y-0.5">
+          <p className="text-lg font-medium text-foreground">
+            Subscribed table names
+          </p>
+          <p className="text-xs text-neutral-600">
+            Total: {subscribedTables.length} subscriptions
+          </p>
+        </div>
+
+        <div className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-y-auto">
+          <div className="p-1">
+            <SearchField
+              value={subscribedSearch}
+              onChange={(e) => setSubscribedSearch(e.target.value)}
+            />
+          </div>
+          {filteredSubscribedTables.map((t) => (
+            <SubscribedTableRow key={t.id} table={t} justSaved={justSavedIds.has(t.id)} />
+          ))}
+          {filteredSubscribedTables.length === 0 && (
+            <p className="w-full py-4 text-sm text-muted-foreground">
+              {subscribedTables.length === 0
+                ? "No subscriptions yet — subscribe to a table on the left."
+                : "No subscribed tables match your search."}
+            </p>
+          )}
+        </div>
+      </div>
+      </div>
+    </>
+  )
+
+  return (
+    <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-white">
+      {isAdmin ? (
+        <Tabs value={mainTab} onValueChange={setMainTab} className="flex min-h-0 flex-1 flex-col gap-0">
+          <div className="w-full shrink-0 border-b pt-4 pr-6 pl-[20px]">
+            <TabsList variant="line" className="justify-start gap-1">
+              <TabsTrigger value="user-management">User Management</TabsTrigger>
+              <TabsTrigger value="subscription">Subscription</TabsTrigger>
+            </TabsList>
           </div>
 
-          <div className="flex min-h-0 flex-1 items-stretch overflow-hidden">
-          <div className="flex min-h-0 min-w-0 flex-[7] flex-col gap-4 px-6 pt-5 pb-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-4">
-                <Select value={appFilter} onValueChange={setAppFilter}>
-                  <SelectTrigger className="h-9 w-fit gap-2">
-                    <span className="text-muted-foreground">Application:</span>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {APPLICATIONS.map((a) => (
-                      <SelectItem key={a} value={a}>
-                        {a}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="h-9 w-fit gap-2">
-                    <span className="text-muted-foreground">Category Data:</span>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={hostFilter} onValueChange={setHostFilter}>
-                  <SelectTrigger className="h-9 w-fit gap-2">
-                    <span className="text-muted-foreground">IP Host / Host Name:</span>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {HOST_OPTIONS.map((h) => (
-                      <SelectItem key={h} value={h}>
-                        {h}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={layerFilter} onValueChange={setLayerFilter}>
-                  <SelectTrigger className="h-9 w-fit gap-2">
-                    <span className="text-muted-foreground">Layer ID:</span>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LAYER_ID_OPTIONS.map((l) => (
-                      <SelectItem key={l} value={l}>
-                        {l}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          <TabsContent value="user-management" className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-white">
+            {selectedUser ? (
+              <div className="p-6">
+                <UserDetailView
+                  key={selectedUser.id}
+                  user={selectedUser}
+                  onBack={() => setSelectedUserId(null)}
+                />
               </div>
+            ) : (
+              <>
+                <div className="shrink-0 space-y-3 border-b bg-white px-6 py-[18px]">
+                  <div className="space-y-0.5">
+                    <h2 className="text-xl leading-6 font-semibold text-foreground">User Management</h2>
+                    <p className="text-xs leading-4 text-neutral-600">
+                      Admin summary of users, their subscriptions, and subscribed tables
+                    </p>
+                  </div>
+                  <Tabs value={userManagementTab} onValueChange={setUserManagementTab}>
+                    <TabsList>
+                      <TabsTrigger value="overview">
+                        <LayoutDashboard />
+                        Overview
+                      </TabsTrigger>
+                      <TabsTrigger value="list-user">
+                        <Users />
+                        List User
+                      </TabsTrigger>
+                      <TabsTrigger value="list-table">
+                        <Table2 />
+                        List Table
+                      </TabsTrigger>
+                      <TabsTrigger value="list-activity">
+                        <History />
+                        List Activity
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
 
-              <div className="flex shrink-0 items-center gap-2">
-                {isEditMode ? (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 min-h-8 rounded-[8px] border-neutral-300 bg-white/10 py-2 pr-2 pl-2.5 text-sm shadow-xs"
-                      onClick={handleCancel}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="h-8 min-h-8 rounded-[8px] py-2 pr-2 pl-2.5 text-sm shadow-xs"
-                      disabled={!hasDraftChanges}
-                      onClick={handleSave}
-                    >
-                      Save
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 min-h-8 gap-1.5 rounded-[8px] border-neutral-300 bg-white/10 py-2 pr-2 pl-2.5 text-sm shadow-xs"
-                    onClick={enterEditMode}
-                  >
-                    <Pencil className="size-3.5" />
-                    Edit subscription
-                  </Button>
+                {userManagementTab === "overview" && <SubscriptionOverviewTab />}
+                {userManagementTab === "list-user" && (
+                  <div className="p-6">
+                    <UserSubscriptionsList
+                      users={ADMIN_USERS}
+                      onSelectUser={(user) => setSelectedUserId(user.id)}
+                    />
+                  </div>
                 )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <SearchField value={search} onChange={(e) => setSearch(e.target.value)} />
-              <p className="text-xs font-medium text-neutral-600">
-                Showing {filtered.length} tables
-              </p>
-            </div>
-
-            {isEditMode && (
-              <SelectAllRow
-                checked={allFilteredChecked}
-                indeterminate={someFilteredChecked && !allFilteredChecked}
-                onChange={handleSelectAllChange}
-                canBulkSubscribe={canBulkSubscribe}
-                canBulkUnsubscribe={canBulkUnsubscribe}
-                onBulkSubscribe={bulkSubscribe}
-                onBulkUnsubscribe={bulkUnsubscribe}
-              />
+                {userManagementTab === "list-table" && (
+                  <div className="p-6">
+                    <TableSubscriptionsList tables={SUBSCRIPTION_TABLES} />
+                  </div>
+                )}
+                {userManagementTab === "list-activity" && <ActivityListTab />}
+              </>
             )}
+          </TabsContent>
 
-            <div className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-y-auto">
-              {filtered.map((t) => (
-                <SubscriptionRow
-                  key={t.id}
-                  table={t}
-                  isSubscribed={(isEditMode ? draftSubscribedIds : subscribedIds).has(t.id)}
-                  isEditMode={isEditMode}
-                  isChecked={checkedIds.has(t.id)}
-                  onToggleChecked={toggleChecked}
-                />
-              ))}
-              {filtered.length === 0 && (
-                <p className="w-full py-4 text-center text-sm text-muted-foreground">
-                  No tables match your filters.
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="flex min-h-0 min-w-0 flex-[3] flex-col gap-2 border-l px-6 pt-5 pb-6">
-            <div className="shrink-0 space-y-0.5">
-              <p className="text-lg font-medium text-foreground">
-                Subscribed table names
-              </p>
-              <p className="text-xs text-neutral-600">
-                Total: {subscribedTables.length} subscriptions
-              </p>
-            </div>
-
-            <div className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-y-auto">
-              <div className="p-1">
-                <SearchField
-                  value={subscribedSearch}
-                  onChange={(e) => setSubscribedSearch(e.target.value)}
-                />
-              </div>
-              {filteredSubscribedTables.map((t) => (
-                <SubscribedTableRow key={t.id} table={t} justSaved={justSavedIds.has(t.id)} />
-              ))}
-              {filteredSubscribedTables.length === 0 && (
-                <p className="w-full py-4 text-sm text-muted-foreground">
-                  {subscribedTables.length === 0
-                    ? "No subscriptions yet — subscribe to a table on the left."
-                    : "No subscribed tables match your search."}
-                </p>
-              )}
-            </div>
-          </div>
-          </div>
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="subscription" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {subscriptionSection}
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          {subscriptionSection}
+        </div>
+      )}
     </div>
   )
 }

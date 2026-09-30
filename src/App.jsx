@@ -35,6 +35,7 @@ import { ViewModeProvider } from "@/context/ViewModeContext"
 function App() {
   const { pathname } = useLocation()
   const hideTopbar =
+    pathname === "/" ||
     pathname.startsWith("/applications") ||
     pathname.startsWith("/data-observability") ||
     pathname.startsWith("/ticketing") ||

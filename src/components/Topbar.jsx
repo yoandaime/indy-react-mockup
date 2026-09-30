@@ -1,13 +1,18 @@
 import { Link, useLocation } from "react-router-dom"
 import indyLogo from "@/assets/indy-logo.svg"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
-import { ticketAuthorAvatarUrl } from "@/data/ticketingData"
+import { ticketAuthorAvatarUrl, ticketAuthorInitials } from "@/data/ticketingData"
+import { useAccess } from "@/context/AccessContext"
 
 const CURRENT_USER_NAME = "Antonio Nusa"
 
 export default function Topbar() {
   const { pathname } = useLocation()
-  const hideTitle = pathname === "/customer-data-ops" || pathname === "/"
+  const { role } = useAccess()
+  const isUser = role === "user"
+  const roleLabel = isUser ? "User" : "Admin"
+  const displayName = isUser ? "William Saliba" : CURRENT_USER_NAME
+  const hideTitle = pathname === "/customer-data-ops"
 
   return (
     <header className="sticky top-0 z-[100] flex h-14 items-center justify-between gap-3 border-b border-border bg-card px-10 shadow-sm">
@@ -28,14 +33,14 @@ export default function Topbar() {
 
       <div className="flex items-center gap-1.5 rounded-md">
         <Avatar>
-          {ticketAuthorAvatarUrl(CURRENT_USER_NAME) && (
-            <AvatarImage src={ticketAuthorAvatarUrl(CURRENT_USER_NAME)} alt={CURRENT_USER_NAME} />
+          {ticketAuthorAvatarUrl(displayName) && (
+            <AvatarImage src={ticketAuthorAvatarUrl(displayName)} alt={displayName} />
           )}
-          <AvatarFallback>AN</AvatarFallback>
+          <AvatarFallback>{ticketAuthorInitials(displayName)}</AvatarFallback>
         </Avatar>
         <div className="text-left leading-tight">
-          <div className="text-sm font-medium text-foreground">Antonio Nusa</div>
-          <div className="text-xs text-muted-foreground">Admin</div>
+          <div className="text-sm font-medium text-foreground">{displayName}</div>
+          <div className="text-xs text-muted-foreground">{roleLabel}</div>
         </div>
       </div>
     </header>
