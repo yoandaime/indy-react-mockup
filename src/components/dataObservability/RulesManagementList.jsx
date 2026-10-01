@@ -347,7 +347,7 @@ export default function RulesManagementList({ customRules, ruleRequests, onAddNe
             <div>
               <h2 className="text-lg font-semibold text-foreground">Rule Types</h2>
               <p className="text-sm text-muted-foreground">
-                Manage the data quality rule types available in Data Observability. Custom rules are marked with a badge.
+                Manage the data quality rule types available in Data Quality Experience. Custom rules are marked with a badge.
               </p>
             </div>
             <Button type="button" variant="outline" onClick={handleRefresh}>

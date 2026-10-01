@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { ChevronLeft, Pencil } from "lucide-react"
 import { ADMIN_DETAIL } from "@/data/adminConnections"
-import { useViewMode } from "@/context/ViewModeContext"
+import { useAccess } from "@/context/AccessContext"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -35,8 +35,8 @@ function BackButton() {
 export default function EnrichDataAdminDetailPage() {
   const { id } = useParams()
   const detail = ADMIN_DETAIL[Number(id)]
-  const { viewMode } = useViewMode()
-  const readOnly = viewMode === "user"
+  const { role } = useAccess()
+  const readOnly = role === "user"
 
   if (!detail) {
     return (

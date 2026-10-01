@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link, useLocation } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import {
   Menu,
   PanelLeft,
@@ -46,8 +46,8 @@ function handleResetDemoData() {
 
 const MENU_ITEMS = [
   { key: "applications", label: "Applications", icon: LayoutGrid, path: "/applications" },
-  { key: "ticketing", label: "Insiden Management", icon: Ticket, path: "/ticketing" },
-  { key: "data-observability", label: "Data Observability", icon: Eye, path: "/data-observability" },
+  { key: "ticketing", label: "Incident Management", icon: Ticket, path: "/ticketing" },
+  { key: "data-observability", label: "DQ Experience", icon: Eye, path: "/data-observability" },
   { key: "enrich-data", label: "Enrich Data", icon: FilePlus2, path: "/enrich-data/admin" },
   { key: "customer-data-ops", label: "Customer Data Ops", icon: Rss, path: "/customer-data-ops" },
   { key: "catalog-knowledge", label: "Data Driven Catalog", icon: BookOpen, path: "/catalog-knowledge" },
@@ -97,10 +97,16 @@ function MenuList() {
 }
 
 function UserFooter({ expanded }) {
-  const { role } = useAccess()
+  const { role, setRole } = useAccess()
+  const navigate = useNavigate()
   const isUser = role === "user"
   const roleLabel = isUser ? "User" : "Admin"
   const displayName = isUser ? "William Saliba" : CURRENT_USER_NAME
+
+  function handleSignOut() {
+    setRole(null)
+    navigate("/")
+  }
 
   return (
     <DropdownMenu>
@@ -139,7 +145,7 @@ function UserFooter({ expanded }) {
             Reset Demo Data
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive">
+          <DropdownMenuItem variant="destructive" onClick={handleSignOut}>
             <LogOut />
             Sign Out
           </DropdownMenuItem>

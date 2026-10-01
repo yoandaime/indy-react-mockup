@@ -202,7 +202,7 @@ function SummaryCard({ label, value, caption }) {
   )
 }
 
-export default function TicketingDetailPage() {
+export default function IncidentManagementDetailPage() {
   const { id } = useParams()
   const { pathname } = useLocation()
   const navigate = useNavigate()

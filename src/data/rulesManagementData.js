@@ -1,4 +1,4 @@
-// Mock data source for the Data Observability page's Rules Management tab —
+// Mock data source for the DQ Experience page's Rules Management tab —
 // one row per registered table, with the rules applied to it grouped by
 // dimension. Generated deterministically (no Math.random) so the same table
 // always shows the same assigned rules across reloads.
@@ -6,7 +6,7 @@
 import { getStandardRules, getDimensionKeys } from "@/lib/dqComposer/ruleCatalog"
 import { DQ_CONNECTIONS } from "@/data/dqComposerMockData"
 
-// Same registered connections as the DQ Explorer tab, so a table's
+// Same registered connections as the DQ Studio tab, so a table's
 // connection here maps to a real one there.
 export const RULES_MANAGEMENT_CONNECTIONS = DQ_CONNECTIONS
 

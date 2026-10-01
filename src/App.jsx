@@ -16,8 +16,8 @@ import MetadataLineageDiscoverySection from "@/pages/catalog-knowledge/MetadataL
 import PassedKpiSection from "@/pages/catalog-knowledge/PassedKpiSection"
 import DiscrepancySection from "@/pages/catalog-knowledge/DiscrepancySection"
 import RegisterDataPage from "@/pages/RegisterDataPage"
-import TicketingPage from "@/pages/TicketingPage"
-import TicketingDetailPage from "@/pages/TicketingDetailPage"
+import IncidentManagementPage from "@/pages/IncidentManagementPage"
+import IncidentManagementDetailPage from "@/pages/IncidentManagementDetailPage"
 import TicketingLayout from "@/components/ticketing/TicketingLayout"
 import DashboardSection from "@/pages/ticketing-admin/DashboardSection"
 import SlaManagementSection from "@/pages/ticketing-admin/SlaManagementSection"
@@ -27,10 +27,10 @@ import AuditLogSection from "@/pages/ticketing-admin/AuditLogSection"
 import ManageUsersSection from "@/pages/ticketing-admin/ManageUsersSection"
 import ContentModerationSection from "@/pages/ticketing-admin/ContentModerationSection"
 import ManageCategoriesSection from "@/pages/ticketing-admin/ManageCategoriesSection"
+import RootCauseAnalysisSection from "@/pages/ticketing-admin/RootCauseAnalysisSection"
 import AppSidebarLayout from "@/components/AppSidebarLayout"
-import DataObservabilityPage from "@/pages/DataObservabilityPage"
+import DqExperiencePage from "@/pages/DqExperiencePage"
 import IndyAssistantPage from "@/pages/IndyAssistantPage"
-import { ViewModeProvider } from "@/context/ViewModeContext"
 
 function App() {
   const { pathname } = useLocation()
@@ -55,8 +55,9 @@ function App() {
         </Route>
         <Route path="/ticketing" element={<AppSidebarLayout />}>
           <Route element={<TicketingLayout />}>
-            <Route index element={<TicketingPage />} />
-            <Route path=":id" element={<TicketingDetailPage />} />
+            <Route index element={<IncidentManagementPage />} />
+            <Route path="root-cause-analysis" element={<RootCauseAnalysisSection />} />
+            <Route path=":id" element={<IncidentManagementDetailPage />} />
             <Route path="admin">
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<DashboardSection />} />
@@ -66,25 +67,18 @@ function App() {
               <Route path="audit-log" element={<AuditLogSection />} />
               <Route path="manage-users" element={<ManageUsersSection />} />
               <Route path="content-moderation" element={<ContentModerationSection />} />
-              <Route path="content-moderation/:id" element={<TicketingDetailPage />} />
+              <Route path="content-moderation/:id" element={<IncidentManagementDetailPage />} />
               <Route path="manage-categories" element={<ManageCategoriesSection />} />
             </Route>
           </Route>
         </Route>
         <Route path="/data-observability" element={<AppSidebarLayout />}>
-          <Route index element={<DataObservabilityPage />} />
+          <Route index element={<DqExperiencePage />} />
         </Route>
         <Route path="/customer-data-ops" element={<AppSidebarLayout />}>
           <Route index element={<CustomerDataOpsPage />} />
         </Route>
-        <Route
-          path="/enrich-data/admin"
-          element={
-            <ViewModeProvider>
-              <AppSidebarLayout />
-            </ViewModeProvider>
-          }
-        >
+        <Route path="/enrich-data/admin" element={<AppSidebarLayout />}>
           <Route index element={<EnrichDataAdminPage />} />
           <Route path="new" element={<EnrichDataAddPage />} />
           <Route path=":id" element={<EnrichDataAdminDetailPage />} />

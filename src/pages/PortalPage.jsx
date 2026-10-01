@@ -30,8 +30,10 @@ export default function PortalPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-10 bg-neutral-50 px-6 py-10">
       <div className="flex flex-col items-center gap-3">
-        <img src={indyLogo} alt="INDY" className="h-10 w-auto" />
-        <h1 className="text-2xl font-semibold text-foreground">Welcome to INDY</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-light text-foreground">Welcome to</h1>
+          <img src={indyLogo} alt="INDY" className="h-8 w-auto" />
+        </div>
         <p className="text-sm text-muted-foreground">Choose how you'd like to enter the platform.</p>
       </div>
 

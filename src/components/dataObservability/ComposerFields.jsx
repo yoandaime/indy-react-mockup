@@ -176,18 +176,30 @@ export default function ComposerFields({
 
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1.5">
-          <Label htmlFor="rule-lookback">Lookback Days</Label>
+          <Label htmlFor="rule-start-date">Start Date</Label>
           <Input
-            id="rule-lookback"
-            type="number"
-            value={composer.lookbackDays}
-            onChange={(e) => patchComposer({ lookbackDays: e.target.value })}
+            id="rule-start-date"
+            type="date"
+            value={composer.startDate}
+            max={composer.endDate || undefined}
+            onChange={(e) => patchComposer({ startDate: e.target.value })}
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="rule-limit">Limit</Label>
-          <Input id="rule-limit" type="number" value={composer.limit} onChange={(e) => patchComposer({ limit: e.target.value })} />
+          <Label htmlFor="rule-end-date">End Date</Label>
+          <Input
+            id="rule-end-date"
+            type="date"
+            value={composer.endDate}
+            min={composer.startDate || undefined}
+            onChange={(e) => patchComposer({ endDate: e.target.value })}
+          />
         </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="rule-limit">Limit</Label>
+        <Input id="rule-limit" type="number" value={composer.limit} onChange={(e) => patchComposer({ limit: e.target.value })} />
       </div>
 
       <Button type="button" className="w-full" onClick={onGenerateSql} disabled={!canGenerate}>

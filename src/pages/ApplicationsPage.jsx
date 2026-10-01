@@ -4,7 +4,6 @@ import ApplicationsSidebar from "@/components/applications/ApplicationsSidebar"
 import MainDashboardView from "@/components/applications/MainDashboardView"
 import mainDashboardIcon from "@/assets/application-icons/kind=main dashboard.png"
 import reportManagementIcon from "@/assets/application-icons/kind=Report Management.png"
-import rcaIcon from "@/assets/application-icons/kind=rca.png"
 import customReportIcon from "@/assets/application-icons/kind=custom report.png"
 import botIcon from "@/assets/application-icons/kind=bot.png"
 import { cn } from "@/lib/utils"
@@ -24,12 +23,6 @@ const APPLICATIONS = [
     title: "Report Management",
     description: "Monitor anomalies. Get report in period",
     icon: reportManagementIcon,
-  },
-  {
-    key: "root-cause-analysis",
-    title: "Root Cause Analysis",
-    description: "Find, discuss and elaborate each of data problem.",
-    icon: rcaIcon,
   },
   {
     key: "custom-report",

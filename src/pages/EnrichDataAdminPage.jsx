@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Search } from "lucide-react"
 import { ADMIN_CONNECTIONS } from "@/data/adminConnections"
-import { useViewMode } from "@/context/ViewModeContext"
+import { useAccess } from "@/context/AccessContext"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -29,8 +29,8 @@ export default function EnrichDataAdminPage() {
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
   const navigate = useNavigate()
-  const { viewMode } = useViewMode()
-  const isUserView = viewMode === "user"
+  const { role } = useAccess()
+  const isUserView = role === "user"
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()

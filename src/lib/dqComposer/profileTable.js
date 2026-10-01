@@ -44,7 +44,7 @@ function addDays(dayStr, delta) {
   return dateKey(d)
 }
 
-function daysBetweenInclusive(startDate, endDate) {
+export function daysBetweenInclusive(startDate, endDate) {
   const start = new Date(`${startDate}T00:00:00`).getTime()
   const end = new Date(`${endDate}T00:00:00`).getTime()
   if (Number.isNaN(start) || Number.isNaN(end)) return 0

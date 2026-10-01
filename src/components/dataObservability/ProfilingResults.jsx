@@ -1,5 +1,17 @@
 import { useEffect, useState } from "react"
-import { CheckCircle2, Fingerprint, ShieldCheck, Clock, ArrowUp, ArrowDown, Minus, TriangleAlert } from "lucide-react"
+import {
+  CheckCircle2,
+  Fingerprint,
+  ShieldCheck,
+  Clock,
+  ArrowUp,
+  ArrowDown,
+  Minus,
+  TriangleAlert,
+  Database,
+  Table2,
+  TrendingUp,
+} from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -37,6 +49,20 @@ function GapBadge({ isGap }) {
     <Badge variant="outline" className="border-transparent bg-emerald-100 font-semibold text-emerald-700">
       OK
     </Badge>
+  )
+}
+
+function GroupSection({ title, icon: Icon, children }) {
+  return (
+    <div className="flex w-full shrink-0 flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <span className="flex size-5 shrink-0 items-center justify-center rounded-[6px] bg-primary/10 text-primary">
+          <Icon className="size-3" />
+        </span>
+        <p className="text-base font-semibold text-foreground">{title}</p>
+      </div>
+      <div className="flex w-full flex-col gap-4">{children}</div>
+    </div>
   )
 }
 
@@ -141,38 +167,42 @@ function ProfilingSkeleton() {
     <>
       <LoadingBar />
 
-      <div className="grid w-full shrink-0 grid-cols-4 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm [&>*]:border-r [&>*]:border-b [&>*]:border-neutral-200 [&>*:nth-child(4n)]:border-r-0 [&>*:nth-last-child(-n+4)]:border-b-0">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="space-y-1.5 px-3 py-2.5">
-            <Skeleton className="h-2.5 w-16" />
-            <Skeleton className="h-3.5 w-24" />
-          </div>
-        ))}
-      </div>
+      <GroupSection title="Metadata" icon={Database}>
+        <div className="grid w-full shrink-0 grid-cols-4 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm [&>*]:border-r [&>*]:border-b [&>*]:border-neutral-200 [&>*:nth-child(4n)]:border-r-0 [&>*:nth-last-child(-n+4)]:border-b-0">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="space-y-1.5 px-3 py-2.5">
+              <Skeleton className="h-2.5 w-16" />
+              <Skeleton className="h-3.5 w-24" />
+            </div>
+          ))}
+        </div>
+      </GroupSection>
 
-      <div className="grid w-full shrink-0 grid-cols-2 gap-3 sm:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="flex-1 space-y-3 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-7 w-14" />
-            <Skeleton className="h-1 w-full rounded-full" />
-          </div>
-        ))}
-      </div>
+      <GroupSection title="Variable" icon={Table2}>
+        <div className="grid w-full shrink-0 grid-cols-2 gap-3 sm:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex-1 space-y-3 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-7 w-14" />
+              <Skeleton className="h-1 w-full rounded-full" />
+            </div>
+          ))}
+        </div>
 
-      <div className="w-full shrink-0 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
+        <div className="flex w-full flex-col gap-2">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-40 w-full rounded-lg" />
+        </div>
+
+        <div className="flex w-full flex-col gap-2">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-32 w-full rounded-lg" />
+        </div>
+      </GroupSection>
+
+      <GroupSection title="Trend" icon={TrendingUp}>
         <Skeleton className="h-[220px] w-full" />
-      </div>
-
-      <div className="flex w-full flex-col gap-2">
-        <Skeleton className="h-4 w-24" />
-        <Skeleton className="h-40 w-full rounded-lg" />
-      </div>
-
-      <div className="flex w-full flex-col gap-2">
-        <Skeleton className="h-4 w-24" />
-        <Skeleton className="h-32 w-full rounded-lg" />
-      </div>
+      </GroupSection>
     </>
   )
 }
@@ -194,7 +224,7 @@ export default function ProfilingResults({ profile, isLoading }) {
 
   return (
     <>
-      <>
+      <GroupSection title="Metadata" icon={Database}>
         <div className="grid w-full shrink-0 grid-cols-4 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm [&>*]:border-r [&>*]:border-b [&>*]:border-neutral-200 [&>*:nth-child(4n)]:border-r-0 [&>*:nth-last-child(-n+4)]:border-b-0">
           <InfoItem label="Table" value={profile.table} />
           <InfoItem
@@ -208,9 +238,9 @@ export default function ProfilingResults({ profile, isLoading }) {
           <InfoItem label="Days w/ Gap" value={profile.summary.gap_days} />
           <InfoItem label="Days w/ Null" value={profile.summary.null_days} />
         </div>
-      </>
+      </GroupSection>
 
-      <>
+      <GroupSection title="Variable" icon={Table2}>
         <div className="grid w-full shrink-0 grid-cols-2 gap-3 sm:grid-cols-4">
           {profile.dimensions.map((d) => (
             <DimensionCard key={d.key} dimensionKey={d.key} value={d.value} delta={d.delta} />
@@ -357,13 +387,11 @@ export default function ProfilingResults({ profile, isLoading }) {
             </Table>
           </div>
         </div>
-      </>
+      </GroupSection>
 
-      <>
-        <div className="w-full shrink-0 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
-          <ProfileTrendChart daily={profile.daily} />
-        </div>
-      </>
+      <GroupSection title="Trend" icon={TrendingUp}>
+        <ProfileTrendChart daily={profile.daily} />
+      </GroupSection>
     </>
   )
 }

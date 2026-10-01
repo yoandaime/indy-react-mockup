@@ -54,7 +54,7 @@ import { useAccess } from "@/context/AccessContext"
 import { requesterDisplayName, formatDateTime } from "@/lib/requestStatus"
 import { buildRuleQuery } from "@/lib/dqComposer/buildQuery"
 import { runRuleAnalysis } from "@/lib/dqComposer/runAnalysis"
-import { profileTable, computeDefaultDateRange } from "@/lib/dqComposer/profileTable"
+import { profileTable, computeDefaultDateRange, daysBetweenInclusive } from "@/lib/dqComposer/profileTable"
 import { buildComposerQuery, genericizeQuery, runComposerRule } from "@/lib/dqComposer/runComposer"
 
 // Rule types needing a second "control table" to compare against.
@@ -93,7 +93,8 @@ function makeInitialComposerState(rule) {
     numerator: rule?.num || "",
     denominator: rule?.denom || "",
     tableB: { ...INITIAL_TABLE_B },
-    lookbackDays: String(DEFAULT_LOOKBACK_DAYS),
+    startDate: "",
+    endDate: "",
     limit: String(DEFAULT_LIMIT),
     sqlQuery: "",
     previewRows: null,
@@ -174,7 +175,7 @@ function clampSelection(values, max) {
   return values.length > max ? values.slice(0, max) : values
 }
 
-export default function DataObservabilityPage() {
+export default function DqExperiencePage() {
   const { role } = useAccess()
   const [topTab, setTopTab] = useState("dq-composer")
   const [subTab, setSubTab] = useState("profiling")
@@ -206,7 +207,8 @@ export default function DataObservabilityPage() {
   const [dimension, setDimension] = useState("")
   const [ruleType, setRuleType] = useState("")
   const [granularity, setGranularity] = useState(DEFAULT_GRANULARITY)
-  const [lookbackDays, setLookbackDays] = useState(String(DEFAULT_LOOKBACK_DAYS))
+  const [ruleStartDate, setRuleStartDate] = useState("")
+  const [ruleEndDate, setRuleEndDate] = useState("")
   const [limit, setLimit] = useState(String(DEFAULT_LIMIT))
   const [ruleState, setRuleState] = useState(INITIAL_RULE_STATE)
   const [sqlQuery, setSqlQuery] = useState("")
@@ -263,6 +265,8 @@ export default function DataObservabilityPage() {
     setSqlQuery("")
     setAnalysisRows(null)
     setRuleState(INITIAL_RULE_STATE)
+    setRuleStartDate("")
+    setRuleEndDate("")
     setInsertTimeColumn("")
     setUniqKeyColumns([])
     setProfileStartDate("")
@@ -310,7 +314,9 @@ export default function DataObservabilityPage() {
     const defaultRange = computeDefaultDateRange(found.rows, defaultPeriod, DEFAULT_LOOKBACK_DAYS)
     setProfileStartDate(defaultRange.startDate)
     setProfileEndDate(defaultRange.endDate)
-    patchComposer({ sqlQuery: "", previewRows: null })
+    setRuleStartDate(defaultRange.startDate)
+    setRuleEndDate(defaultRange.endDate)
+    patchComposer({ sqlQuery: "", previewRows: null, startDate: defaultRange.startDate, endDate: defaultRange.endDate })
     notifySuccess(
       "Table described successfully",
       `${found.columns.length} columns found in ${fullTableName(schema, tableName)}`
@@ -346,7 +352,7 @@ export default function DataObservabilityPage() {
       ruleType,
       partitionColumn,
       granularity,
-      lookbackDays: Number(lookbackDays),
+      lookbackDays: daysBetweenInclusive(ruleStartDate, ruleEndDate),
       limit: Number(limit),
     }
     switch (ruleType) {
@@ -492,7 +498,7 @@ export default function DataObservabilityPage() {
       table: fullTableName(schema, tableName),
       partitionColumn,
       granularity: "daily",
-      lookbackDays: Number(composer.lookbackDays),
+      lookbackDays: daysBetweenInclusive(composer.startDate, composer.endDate),
       limit: Number(composer.limit),
       ruleName: composer.ruleName,
       columnName: composer.columnName,
@@ -678,7 +684,7 @@ export default function DataObservabilityPage() {
           <TabsList variant="line">
             <TabsTrigger value="dq-composer">
               <Wand2 />
-              DQ Explorer
+              DQ Studio
             </TabsTrigger>
             <TabsTrigger value="rules-catalog">
               <ListChecks />
@@ -1041,18 +1047,30 @@ export default function DataObservabilityPage() {
 
                         <div className="grid grid-cols-2 gap-2">
                           <div className="space-y-1.5">
-                            <Label htmlFor="dq-lookback">Lookback Days</Label>
+                            <Label htmlFor="dq-start-date">Start Date</Label>
                             <Input
-                              id="dq-lookback"
-                              type="number"
-                              value={lookbackDays}
-                              onChange={(e) => setLookbackDays(e.target.value)}
+                              id="dq-start-date"
+                              type="date"
+                              value={ruleStartDate}
+                              max={ruleEndDate || undefined}
+                              onChange={(e) => setRuleStartDate(e.target.value)}
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label htmlFor="dq-limit">Limit</Label>
-                            <Input id="dq-limit" type="number" value={limit} onChange={(e) => setLimit(e.target.value)} />
+                            <Label htmlFor="dq-end-date">End Date</Label>
+                            <Input
+                              id="dq-end-date"
+                              type="date"
+                              value={ruleEndDate}
+                              min={ruleStartDate || undefined}
+                              onChange={(e) => setRuleEndDate(e.target.value)}
+                            />
                           </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label htmlFor="dq-limit">Limit</Label>
+                          <Input id="dq-limit" type="number" value={limit} onChange={(e) => setLimit(e.target.value)} />
                         </div>
 
                         <Button type="button" className="w-full" onClick={handleGenerateSql} disabled={!canGenerate}>

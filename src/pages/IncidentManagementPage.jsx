@@ -97,7 +97,7 @@ function isMyTask(ticket) {
   )
 }
 
-export default function TicketingPage() {
+export default function IncidentManagementPage() {
   const { selectedCategoryPath, tickets, setTickets, taskFilter } = useOutletContext()
   const [boardTab, setBoardTab] = useState("board")
   const [viewMode, setViewMode] = useState("grid")

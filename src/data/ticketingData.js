@@ -988,7 +988,7 @@ export function getTicketHistory(ticket) {
 
 // Builds a full ticket record from a New/Duplicate Ticket dialog draft,
 // assigning a fresh ID and the workflow defaults every ticket starts with.
-// Shared by TicketingPage (New Ticket) and TicketingDetailPage (Duplicate).
+// Shared by IncidentManagementPage (New Ticket) and IncidentManagementDetailPage (Duplicate).
 export function buildTicketFromDraft(existingTickets, draft) {
   const now = new Date()
   const datePrefix = `NDQR${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(

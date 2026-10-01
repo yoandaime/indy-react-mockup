@@ -1,4 +1,4 @@
-// Mock data source for the Data Observability page's DQ Composer tool.
+// Mock data source for the DQ Experience page's DQ Composer tool.
 // Shape (schema/table/column names, sample values) is taken from real
 // reference tables in src/data/dqcomposer_reference/source_data/ — trimmed to
 // the identifying columns + a handful of numeric KPI columns for a workable

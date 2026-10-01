@@ -3,6 +3,7 @@ import {
   Inbox,
   LayoutDashboard,
   ListChecks,
+  SquareActivity,
   Timer,
   Tag,
   ClipboardList,
@@ -76,6 +77,19 @@ export default function TicketingSidebar({
               <span className="truncate">{label}</span>
             </button>
           ))}
+
+          <NavLink
+            to="/ticketing/root-cause-analysis"
+            className={({ isActive }) =>
+              cn(
+                "flex h-8 items-center gap-2 rounded-md px-2 text-sm text-neutral-700 hover:bg-muted",
+                isActive && "bg-[#fdecee] text-primary hover:bg-[#fdecee]"
+              )
+            }
+          >
+            <SquareActivity className="size-4 shrink-0" />
+            <span className="truncate">Root Cause Analysis</span>
+          </NavLink>
         </div>
       </div>
 

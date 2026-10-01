@@ -22,7 +22,7 @@ function InsightCategoryButton({ label, active, onClick }) {
   )
 }
 
-// AI summary alert used across Insiden Management (dashboard + ticket detail).
+// AI summary alert used across Incident Management (dashboard + ticket detail).
 // Colors match Figma node 354:3756 exactly: bg violet-50 (#F5F3FF), border violet-300
 // (#C4B5FD), title violet-800 (#5B21B6), description violet-950 (#2E1065).
 export default function IndyAssistantAlert({
