@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import { Wand2, ListChecks, Play, Activity, SlidersHorizontal, Blocks, Table2 } from "lucide-react"
+import { Wand2, ListChecks, Play, Activity, SlidersHorizontal, Blocks, Table2, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import RulesManagementList from "@/components/dataObservability/RulesManagementList"
@@ -484,6 +484,22 @@ export default function DqExperiencePage() {
       )
       setIsProfiling(false)
     }, 800)
+  }
+
+  function handleExportProfile() {
+    if (!profile) return
+    const headers = ["Date", "First Insert", "Last Insert", "Row Count", "Gap"]
+    const rows = profile.daily.map((d) => [d.date, d.first_insert, d.last_insert, d.rows, d.is_gap ? "Gap" : "OK"])
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
+      .join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `${profile.table}-profile-${new Date().toISOString().slice(0, 10)}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
   }
 
   const composerTableOptionsB = tableOptions.filter((t) => t !== tableName)
@@ -1102,7 +1118,19 @@ export default function DqExperiencePage() {
           </aside>
 
           <div className="flex h-full flex-1 flex-col items-start gap-4 overflow-y-auto p-8 pt-6">
-            {subTab === "profiling" && <ProfilingResults profile={profile} isLoading={isProfiling} />}
+            {subTab === "profiling" && (
+              <div className="flex w-full flex-col gap-0">
+                {profile && (
+                  <div className="flex w-full justify-end">
+                    <Button variant="outline" size="sm" onClick={handleExportProfile}>
+                      <Download className="size-4" />
+                      Export
+                    </Button>
+                  </div>
+                )}
+                <ProfilingResults profile={profile} isLoading={isProfiling} />
+              </div>
+            )}
 
             {subTab === "rules" && (
               <>

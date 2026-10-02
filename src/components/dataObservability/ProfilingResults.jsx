@@ -223,7 +223,7 @@ export default function ProfilingResults({ profile, isLoading }) {
   const sampleColumns = profile.sample.length ? Object.keys(profile.sample[0]) : []
 
   return (
-    <>
+    <div className="flex w-full flex-col gap-4">
       <GroupSection title="Metadata" icon={Database}>
         <div className="grid w-full shrink-0 grid-cols-4 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm [&>*]:border-r [&>*]:border-b [&>*]:border-neutral-200 [&>*:nth-child(4n)]:border-r-0 [&>*:nth-last-child(-n+4)]:border-b-0">
           <InfoItem label="Table" value={profile.table} />
@@ -392,6 +392,6 @@ export default function ProfilingResults({ profile, isLoading }) {
       <GroupSection title="Trend" icon={TrendingUp}>
         <ProfileTrendChart daily={profile.daily} />
       </GroupSection>
-    </>
+    </div>
   )
 }
